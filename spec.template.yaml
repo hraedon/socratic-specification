@@ -1,0 +1,225 @@
+# spec.template.yaml
+#
+# Machine-readable sidecar to spec.md. Produced alongside the markdown artifact
+# during Step 7 synthesis. Intended for consumption by implementing agents and
+# orchestration tools that need to query spec content programmatically.
+#
+# All fields present in the markdown artifact have a structured equivalent here.
+# The markdown is the human-readable source of truth; this file is the
+# machine-readable contract. If they conflict, the markdown takes precedence
+# and the YAML should be corrected.
+#
+# Required fields are marked [REQUIRED]. All others may be omitted if not
+# applicable at the current spec level.
+
+# ---------------------------------------------------------------------------
+# Header
+# ---------------------------------------------------------------------------
+
+meta:
+  name: ""                        # [REQUIRED] Short name for the spec
+  spec_level: 1                   # [REQUIRED] Achieved level: 1, 2, or 3
+  desired_level: 1                # [REQUIRED] Level requested by the human
+  date: ""                        # [REQUIRED] ISO 8601 date of synthesis
+  extensions: []                  # Active extensions, e.g. ["mobile"]
+
+# ---------------------------------------------------------------------------
+# Glossary
+# Canonical definitions for domain terms used in this spec.
+# ---------------------------------------------------------------------------
+
+glossary:
+  - term: ""
+    definition: ""
+
+# ---------------------------------------------------------------------------
+# Scope
+# ---------------------------------------------------------------------------
+
+scope:
+  in_scope:
+    - ""
+  out_of_scope:
+    - ""
+
+# ---------------------------------------------------------------------------
+# MVP Definition
+# Human-declared minimum viable version. Reflects value priority, not build order.
+# ---------------------------------------------------------------------------
+
+mvp:
+  description: ""                 # [REQUIRED] One sentence: minimum useful version
+  fr_ids: []                      # [REQUIRED] List of FR IDs in MVP, e.g. ["FR-01", "FR-03"]
+  rationale: ""                   # Why these FRs and not others
+  architectural_prerequisites:    # FRs not in MVP but required before MVP FRs can function
+    - fr_id: ""                   # The MVP FR that has a prerequisite
+      requires: ""                # Description of the prerequisite
+      resolution: ""              # "invisible_infrastructure" | "scope_reduction" | "deferred"
+
+# ---------------------------------------------------------------------------
+# Functional Requirements
+# Each requirement is a testable behavior. MVP items flagged explicitly.
+# ---------------------------------------------------------------------------
+
+functional_requirements:
+  - id: "FR-01"                   # [REQUIRED]
+    mvp: false                    # [REQUIRED] true if this FR is in the MVP
+    text: ""                      # [REQUIRED] Given/when/then statement
+
+# ---------------------------------------------------------------------------
+# Data
+# ---------------------------------------------------------------------------
+
+data:
+  inputs:
+    - name: ""
+      format: ""
+      source: ""
+      validation: ""
+  outputs:
+    - name: ""
+      format: ""
+      destination: ""
+  persisted_state:
+    - description: ""
+      location: ""
+      retention: ""
+
+# ---------------------------------------------------------------------------
+# Business Rules
+# ---------------------------------------------------------------------------
+
+business_rules:
+  - id: "BR-01"
+    text: ""
+
+# ---------------------------------------------------------------------------
+# Error and Failure Handling
+# ---------------------------------------------------------------------------
+
+failure_modes:
+  - failure: ""
+    trigger: ""
+    response: ""
+    notification: ""              # null if no notification
+
+# ---------------------------------------------------------------------------
+# Non-Functional Requirements
+# All values measurable. Auth/identity belongs in high_coupling_decisions.
+# ---------------------------------------------------------------------------
+
+nfr:
+  performance: ""                 # e.g. "report generation under 10 seconds"
+  reliability: ""
+  operability: ""
+
+# ---------------------------------------------------------------------------
+# High-Coupling Decisions
+# status: "decided" | "deferred_flexible" | "deferred_risk"
+# ---------------------------------------------------------------------------
+
+high_coupling_decisions:
+  - decision: ""                  # [REQUIRED]
+    status: "decided"             # [REQUIRED]
+    notes: ""
+
+# ---------------------------------------------------------------------------
+# Acceptance Criteria and Test Plan
+# ---------------------------------------------------------------------------
+
+acceptance_criteria:
+  - id: "AC-01"                   # [REQUIRED]
+    fr_ids: ["FR-01"]             # [REQUIRED] FRs this criterion maps to
+    condition: ""                 # [REQUIRED] Given/when/then test condition
+
+untestable_items:
+  - item: ""
+    reason: ""                    # "external_dependency" | "non_deterministic" |
+                                  # "requires_human_judgment" | other
+
+# ---------------------------------------------------------------------------
+# Work Decomposition
+# Value phases are human-declared. Implementation phasing is agent-owned.
+# ---------------------------------------------------------------------------
+
+work_decomposition:
+  value_phases:
+    - phase: 1                    # [REQUIRED]
+      label: "MVP"                # [REQUIRED]
+      fr_ids: []                  # [REQUIRED]
+      rationale: ""
+
+  dependencies:                   # Intent-level only. Agent validates before building.
+    - fr_id: ""
+      requires: []                # FR IDs that must complete first
+      parallel_with: []           # FR IDs that can run concurrently
+
+# ---------------------------------------------------------------------------
+# Open Questions
+# category: "unknowable" | "needs_research" | "indifferent" | "cheap_to_change" | "blocked"
+# ---------------------------------------------------------------------------
+
+open_questions:
+  - question: ""
+    category: ""                  # [REQUIRED]
+    owner: ""
+
+# ---------------------------------------------------------------------------
+# Assumptions
+# Every assumption made during elicitation without human confirmation.
+# ---------------------------------------------------------------------------
+
+assumptions:
+  - assumption: ""
+    rationale: ""
+
+# ---------------------------------------------------------------------------
+# Handoff State
+# Structured context for the implementing agent.
+# When resolving high_coupling_decisions, the agent must address each
+# intent_signal and record how it was weighed.
+# ---------------------------------------------------------------------------
+
+handoff:
+  decisions_made:
+    - decision: ""
+      rationale: ""
+
+  pending:
+    - item: ""
+      why_deferred: ""
+      impact_if_wrong: ""
+
+  intent_signals:                 # Informal signals from the original vibe spec.
+    - signal: ""                  # Quoted or paraphrased from vibe spec.
+      relevance: ""               # Brief note on architectural relevance.
+
+# ---------------------------------------------------------------------------
+# Delta to Next Level
+# ---------------------------------------------------------------------------
+
+delta_to_next_level:
+  - gap: ""
+    what_would_close_it: ""
+
+# ---------------------------------------------------------------------------
+# [MOBILE] Extension fields
+# Present only when the Mobile extension is active.
+# ---------------------------------------------------------------------------
+
+mobile:
+  platform: ""                    # "ios" | "android" | "both"
+  build_approach: ""              # "native" | "cross_platform"
+  cross_platform_framework: ""    # e.g. "react_native", "flutter" — if cross_platform
+  distribution: ""                # "app_store" | "play_store" | "enterprise" | "testflight"
+  min_os_version: ""              # if known or constrained
+
+  screens:
+    - name: ""
+      purpose: ""                 # One line: what the user does on this screen
+
+  screen_flows:                   # One entry per confirmed sub-diagram
+    - label: ""                   # e.g. "Onboarding", "Core Flow", "Settings"
+      mermaid: |                  # Mermaid flowchart source, confirmed with human
+        flowchart TD
+          A([Launch]) --> B[...]

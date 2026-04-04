@@ -241,7 +241,12 @@ The human confirms before synthesis begins.
 
 Before generating the artifact, the AI makes one final pass over the original vibe spec to capture informal signals — growth expectations, scale hints, future intentions — that were not elevated to formal requirements. These populate Section 15 (Handoff State — Intent Signals), clearly distinguished from requirements and explicitly linked to Section 10 (High-Coupling Decisions) so the implementing agent must address them when resolving architectural choices.
 
-The AI then produces the spec artifact. See **Spec Artifact Template** below.
+The AI produces two outputs:
+
+1. **`spec.md`** — the human-readable artifact. See **Spec Artifact Template** below.
+2. **`spec.yaml`** — the machine-readable sidecar. See **`spec.template.yaml`** in this repo for the full schema.
+
+Both outputs must be kept in sync. If they conflict, `spec.md` is the source of truth and `spec.yaml` should be corrected. Implementing agents and orchestration tools should consume `spec.yaml` for programmatic access to requirements, MVP tags, dependency relationships, and handoff state — not parse the markdown.
 
 ---
 

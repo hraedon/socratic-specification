@@ -9,6 +9,7 @@ A well-designed elicitation process can produce a production-grade spec from a v
 ## What's Here
 
 - **[process.md](process.md)** — The full specification process: roles, spec levels, elicitation steps, the spec artifact template, and process extensions (starting with Mobile)
+- **[spec.template.yaml](spec.template.yaml)** — Machine-readable schema for the spec artifact. Produced alongside `spec.md` during synthesis. Intended for consumption by implementing agents and orchestration tools.
 
 ## How It Works
 
@@ -43,6 +44,17 @@ The base process handles all project types. Extensions activate for specific pro
 - **Mobile (iOS / Android)** — platform declaration, offline behavior, permissions, screen flow diagram
 
 Additional extensions (web, data pipeline, etc.) follow the same pattern.
+
+## Output Artifacts
+
+Each completed spec produces two files:
+
+| File | Purpose |
+|---|---|
+| `spec.md` | Human-readable specification. Source of truth. |
+| `spec.yaml` | Machine-readable sidecar. For programmatic consumption by agents and orchestration tools. |
+
+If they conflict, `spec.md` wins.
 
 ## Status
 

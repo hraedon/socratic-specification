@@ -1,0 +1,1 @@
+The purpose of this project is, through a socratic and adversarial dialogue, create an artifact or artifacts that represent a "complete" specification for a given application or request.

@@ -39,3 +39,30 @@ The Mermaid flowchart is confirmed via a "walkthrough prompt."
 Section 12 (Work Decomposition) assumes that "Phase 1" is synonymous with "MVP."
 - **Risk:** Sometimes "Phase 1" is "Set up the database and auth," which provides zero user value (not MVP) but is a prerequisite for everything else.
 - **Critique:** The process should distinguish more clearly between **"Value Phasing"** (what the user sees) and **"Implementation Phasing"** (what the agent builds).
+
+---
+
+# Independent Validation: Perplexity Review (v5)
+
+A separate adversarial review by Perplexity independently raised three concerns after the v4→v5 iteration. All three map directly to issues Gemini had already identified in the v4 critique and that were addressed in v5.
+
+## Concerns Raised
+
+### 1. MVP vs. Architecture Conflict
+> "A human-declared MVP can be architecturally impossible to build in isolation. The process needs stronger Architectural Prerequisite flagging before finalizing MVP scope."
+
+**Status: Already resolved in v5.** Step 3 item 7 now requires the AI to check MVP FRs against high-coupling decisions immediately after MVP declaration, surfacing any architectural prerequisites as a forced choice before recording the MVP definition.
+
+### 2. Value Phasing vs. Implementation Phasing
+> "The current Work Decomposition conflates 'what the user sees first' with 'what the agent builds first,' which breaks down when Phase 1 is purely infrastructure with zero user-visible value."
+
+**Status: Already resolved in v5.** Section 12 was restructured into two explicitly separated and labeled parts: Value Phases (human-owned, user-visible delivery) and Implementation Phasing (agent-owned, including invisible infrastructure). The agent is required to surface conflicts between declared value phases and build constraints before writing code.
+
+### 3. Diagram Complexity Cap
+> "As screen flows grow, Mermaid diagrams become unreadable and humans start rubber-stamping them. There's no mechanism to enforce sub-diagram decomposition."
+
+**Status: Already resolved in v5.** The mobile extension now includes an explicit 8-screen complexity cap. Above that threshold, the AI must break the flow into named sub-diagrams by logical section, each confirmed separately. The rationale is stated in the process: a diagram that cannot be read comfortably will be rubber-stamped, not audited.
+
+## Significance
+
+Independent convergence on the same issues by two different reviewers (Gemini and Perplexity) validates that these were genuine gaps worth addressing — not reviewer-specific concerns. The v5 fixes are confirmed as load-bearing.

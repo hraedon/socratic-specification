@@ -51,7 +51,11 @@ mvp:
   description: ""                 # [REQUIRED] One sentence: minimum useful version
   fr_ids: []                      # [REQUIRED] List of FR IDs in MVP, e.g. ["FR-01", "FR-03"]
   rationale: ""                   # Why these FRs and not others
-  architectural_prerequisites:    # FRs not in MVP but required before MVP FRs can function
+  architectural_prerequisites:    # [REQUIRED] Must be explicitly populated or explicitly empty.
+                                  # A silently omitted section is a spec defect.
+                                  # Set to [] if the checklist found no prerequisites.
+                                  # Checklist: persistent storage? parsing/crypto module?
+                                  # external service call? auth/identity system?
     - fr_id: ""                   # The MVP FR that has a prerequisite
       requires: ""                # Description of the prerequisite
       resolution: ""              # "invisible_infrastructure" | "scope_reduction" | "deferred"
@@ -106,12 +110,15 @@ failure_modes:
 # ---------------------------------------------------------------------------
 # Non-Functional Requirements
 # All values measurable. Auth/identity belongs in high_coupling_decisions.
+# Each value must cite the domain-language answer it was derived from.
+# If you cannot cite the derivation, the value is a guess — use open_questions.
+# Style: "value  # derived from: 'quoted or paraphrased domain answer'"
 # ---------------------------------------------------------------------------
 
 nfr:
-  performance: ""                 # e.g. "report generation under 10 seconds"
-  reliability: ""
-  operability: ""
+  performance: ""                 # e.g. "under 10 seconds  # derived from: 'before their next action'"
+  reliability: ""                 # e.g. "recovers within 30s  # derived from: 'a blip is fine, an outage is not'"
+  operability: ""                 # e.g. "single-host Docker  # derived from: 'I run this on my laptop'"
 
 # ---------------------------------------------------------------------------
 # High-Coupling Decisions
@@ -149,10 +156,13 @@ work_decomposition:
       fr_ids: []                  # [REQUIRED]
       rationale: ""
 
-  dependencies:                   # Intent-level only. Agent validates before building.
+  dependency_hints:               # Intent-level only. Reflects logical inference from the spec,
+                                  # not verified implementation constraints. Implementing agents
+                                  # must derive actual build order from the codebase — do not
+                                  # treat these as authoritative. Omit if genuinely unknown.
     - fr_id: ""
-      requires: []                # FR IDs that must complete first
-      parallel_with: []           # FR IDs that can run concurrently
+      requires: []                # FR IDs that likely must complete first
+      parallel_with: []           # FR IDs that are likely independent
 
 # ---------------------------------------------------------------------------
 # Open Questions
@@ -201,6 +211,22 @@ handoff:
 delta_to_next_level:
   - gap: ""
     what_would_close_it: ""
+
+# ---------------------------------------------------------------------------
+# Implementation Notes
+# Optional. Populated by implementing tools after a run — not during elicitation.
+# Records outcomes, unexpected prerequisites, and scope drift so that future
+# spec iterations (or re-runs on the same spec) can learn from prior attempts.
+# The spec process does not write this section; tools annotate it post-hoc.
+# ---------------------------------------------------------------------------
+
+implementation_notes:
+  - date: ""                      # ISO 8601 date of the run
+    phase: ""                     # e.g. "Phase 1" or null for overall
+    fr_id: ""                     # FR this note applies to, or null for phase-level
+    outcome: ""                   # "completed" | "failed" | "partial"
+    note: ""                      # What happened — failures, unexpected prerequisites,
+                                  # scope drift, or anything the spec got wrong
 
 # ---------------------------------------------------------------------------
 # [MOBILE] Extension fields

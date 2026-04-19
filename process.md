@@ -168,6 +168,14 @@ Repeat until target level is reached or diminishing returns are declared.
    After the human declares MVP FRs, check them against the current high-coupling decisions. If any MVP FR has a significant architectural prerequisite — an auth system, a sync engine, a data model — that isn't itself in the MVP, surface it as a forced choice before recording:
    > *"[FR-X] needs [prerequisite] to exist first — that's not in your MVP as described. We can include it as invisible infrastructure (the user never sees it, but it has to be built), or we scope down to a version that doesn't need it yet. Which makes more sense?"*
 
+   **Prerequisites gate (blocking):** Before recording MVP FRs in the artifact, evaluate each against this checklist and populate `mvp.architectural_prerequisites` explicitly — even if the answer is "none":
+   - Does this FR read from or write to persistent storage?
+   - Does this FR depend on a parsing, transformation, or cryptographic module?
+   - Does this FR call an external service, network endpoint, or OS resource?
+   - Does this FR require an auth or identity system to exist?
+
+   If any check is yes, that infrastructure is a prerequisite. Record it with a resolution (`invisible_infrastructure`, `scope_reduction`, or `deferred`). If all checks are no, record `architectural_prerequisites: []` explicitly. A silently empty prerequisites section is a spec defect — the check must be performed and the result recorded either way.
+
 8. **Flag specialized domains.** If the spec shows signals of a domain with compliance, regulatory, or safety requirements (healthcare, finance, legal, critical infrastructure), surface this in the conversation:
    > *"This sounds like it may touch [domain]. There are likely requirements in that space I'm not equipped to identify on my own. You may want a domain expert to review the spec before implementation."*
    Record this flag in the Open Questions section of the artifact.
@@ -176,7 +184,16 @@ Repeat until target level is reached or diminishing returns are declared.
    > *"This conflicts with [X] you said earlier. Which is correct, or do both need to be true?"*
    Unresolved conflicts are not papered over — they are recorded as open questions.
 
-10. **Re-assess level** after each round. Show the human the updated level and the delta to the next level.
+10. **Check FR size.** Once functional requirements are substantially complete (typically after round 2), verify each is implementable by a single agent working in isolation. Flag an FR as oversized if it meets two or more of these conditions:
+    - Requires reading or modifying more than ~5 existing files
+    - Requires more than ~300 lines of new implementation code
+    - Calls more than one external system or subsystem (each external system counts as approximately +100 lines of orchestration complexity regardless of line count)
+
+    An oversized FR is a reliability risk in agentic implementation: agents run out of context mid-task and produce incomplete or incorrect output with no visible error. Surface this to the human and propose a concrete split — the human decides, but the risk must be named before synthesis, not discovered at runtime.
+
+    This check is not about technical complexity alone. FR-02 "add a host for TLS scanning" may be only 3 acceptance criteria, but if it requires a network layer, a certificate parser, a database write, and error handling across all three — that is an oversized FR regardless of how it reads.
+
+11. **Re-assess level** after each round. Show the human the updated level and the delta to the next level.
 
 ---
 
@@ -379,9 +396,12 @@ Values are derived from domain-language answers and stated as concrete, measurab
 Adjectives alone (fast, secure, reliable) are not acceptable — each must have a measurable condition.
 Auth and identity, if present, belong in Section 10, not here.
 
-- **Performance:** [e.g., "report generation under 10 seconds" — derived from: "users expect it before their next action"]
-- **Reliability:** [e.g., acceptable failure rate, recovery behavior]
-- **Operability:** [e.g., how deployed, how updated, what logging is required]
+Each value must include an inline derivation note citing the domain-language answer it came from. If you cannot cite the derivation, the value is a guess and belongs in Open Questions instead.
+
+- **Performance:** [value — derived from: "quoted or paraphrased domain-language answer"]
+  - e.g., "report generation under 10 seconds — derived from: 'users expect it before their next action'"
+- **Reliability:** [value — derived from: ...]
+- **Operability:** [value — derived from: ...]
 
 *(Omit subcategories not applicable at this spec level.)*
 
@@ -434,11 +454,11 @@ The agent is responsible for determining build sequence based on architectural d
 **Known prerequisites identified during spec:**
 - [FR-xx likely requires [prerequisite] — flagged during elicitation, not yet validated]
 
-**Dependency notes:**
-- [FR-xx requires FR-xx to be complete first — reason: ...]
+**Dependency hints** *(intent-level only — not a build plan):*
+- [FR-xx likely requires FR-xx to be complete first — reason: ...]
 - [FR-xx and FR-xx are likely independent]
 
-**Limitation:** Dependency mapping here reflects intent and logical inference, not verified implementation constraints. All entries should be treated as starting points for the implementing agent's own analysis, not as a finalized build plan.
+**Limitation:** Dependency hints reflect intent and logical inference from the spec, not verified implementation constraints. Implementing agents must derive actual build order from the codebase. Do not treat these as authoritative.
 
 ---
 

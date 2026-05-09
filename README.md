@@ -58,4 +58,4 @@ If they conflict, `spec.md` wins.
 
 ## Status
 
-Active development. Critiques and iterations tracked in [critique.md](critique.md).
+Active development. Critiques and iterations tracked in [critique.md](critique.md). Open architectural debate tracked in [debate/](debate/).

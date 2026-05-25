@@ -66,3 +66,61 @@ A separate adversarial review by Perplexity independently raised three concerns 
 ## Significance
 
 Independent convergence on the same issues by two different reviewers (Gemini and Perplexity) validates that these were genuine gaps worth addressing — not reviewer-specific concerns. The v5 fixes are confirmed as load-bearing.
+
+---
+
+# Adversarial Review: Debate 005 (DeepSeek v4-pro)
+
+*Originally planned via Gemini 3 Flash; substituted due to a persistent opencode↔Gemini tool-call error (`Function call is missing a thought_signature`). DeepSeek v4-pro chosen as a third distinct lineage from Kimi (author) and Claude (caller).*
+
+## 1. Location: Fold into Step 5, don't create Step 5.5
+
+The proposal positions this as a new half-step, but the process already has fragmentation risk — debate 004 is at Step 5+, and now 005 wants 5.5. Step 5 is described as "a full pass over all accumulated answers, assumptions, and requirements." Expanding that checklist to include composition checks is cleaner than adding a sibling step. The proposal's argument that "Step 5 does not catch these" is true of the *current* Step 5 description, but the fix is broadening Step 5's scope, not layering on new steps. If every new check gets its own half-step the process becomes unteachable.
+
+**The decomposition-tool alternative** has more merit than the proposal concedes. sf2 already has mechanical gates; a structural "call-graph coverage" check in the decomposer would be more reliable than an LLM self-review. But adding it at spec time is still defensible — just not as a separate headline step.
+
+## 2. Five checks: keep 1 and 4, weaken 2, drop 5
+
+**Check 1 (lifecycle wiring) and check 4 (read-path symmetry) are the high-signal, genuinely novel additions.** Nothing in the current process asks "who reads this table" or "when does this start running." These should be kept.
+
+**Check 2 (configuration provenance)** is on the right track but over-specified. The spec should ask "is config declared as deployment-time configurable?" — not prescribe *how* (env vars vs. config file vs. DB). The proposal's examples demand mechanism-level answers at a stage where deployment choices aren't made. This risks premature architectural coupling.
+
+**Check 3 (data-to-UI coverage)** overlaps substantially with Step 5's existing surface area. If a repository has `delete()` and no FR or AC exercises it, that's a semantic inconsistency, not a novel composition gap. It would be caught by a properly-scoped Step 5.
+
+**Check 5 (validation call-site coverage) is the weakest and should be dropped.** "Every validation or business-rule function must have an AC calling it" would fire on every utility validator (`is_valid_email`, `sanitize_input`) used internally by multiple FRs. The false-positive rate on generic utility functions will be high, and the proposal's AI-judgment mitigation is circular — the same model that missed the composition gap during generation is asked to distinguish utility functions from domain validators at audit time.
+
+## 3. Domain-language tension is unaddressed
+
+The five checks are framed in implementation terms (lifecycle hook, repository method, config dataclass). A non-technical human cannot answer "where does `AlertConfig` come from at runtime." The proposal says the AI should "ask one follow-up question in domain language" but provides zero guidance on that translation. This is the same translation-risk problem that debate 004 addresses, now at the composition layer. Example: "When would you set the email address for alerts — is there a settings page in the app, or would someone provide it when setting the system up?" — that's the domain-language version. The proposal needs a concrete translation table, not a hand-wave.
+
+## 4. Same-AI self-review is insufficient; cross-model audit is needed
+
+The proposal, debate 004, and Step 5 all rely on the same AI that produced the spec also auditing it. For 004's pattern-matching on absolutes and missing state machines, this is tolerable. For 005's requirement to detect "this function has no caller anywhere in the spec," it is not. The model that omitted the call site during generation will not notice the omission during review — self-review is systematically worse at detecting its own errors than at detecting errors in other output. If this check stays, it should be run by a different model instance, or better, as a structural parse (symbol table → list of unreferenced export symbols). The proposal omits this requirement entirely.
+
+## 5. Decomposition vs. Socratic ownership: both are right for different layers
+
+The proposal asserts "the spec should own the system narrative." This is right for *connectivity* questions: "does anything read scan_history?" is a spec-level concern and should be answered at Socratic time. But the proposal overreaches on *mechanism* questions: "does the scheduler start at FastAPI boot or on first request?" depends on the framework and deployment model, neither of which is known at Socratic time. The spec should say "certificate checking runs continuously" without deciding whether that's a lifespan hook, a cron job, or a sidecar. The five checks mix these two layers; they need to be separated.
+
+## 6. Does it catch cert-watch? Mostly yes, with one weak link
+
+- **scheduler never wired** → Check 1 catches this cleanly.
+- **AlertConfig no runtime source** → Check 2 catches it, but demands mechanism-level answers the spec shouldn't prescribe.
+- **no delete UI** → Check 3 catches this, but it's redundant with an expanded Step 5 consistency check.
+- **scan_history never displayed** → Check 4 catches this cleanly.
+- **validate_chain_order never called** → Check 5 claims to catch this, but the model that failed to notice the missing call site during generation must now notice it during review. Unreliable. A mechanical "count references" check on the spec text would be more dependable.
+
+Net: four of five real gaps are caught by checks 1-4 alone. Check 5 adds risk without adding coverage.
+
+## 7. What the proposal got right
+
+The "system narrative" framing is correct and worth keeping. Local completeness + global disconnection is a real failure class that the current process does not address. Read-path symmetry and lifecycle wiring are genuinely novel probes. The MVP-scope gating (only flag items in MVP scope to avoid false positives on future-phase modules) is sensible and shows the author thought about over-flagging. The empirical trigger — two independent implementations producing identical gaps — is exactly the right standard for proposing a process change.
+
+## Recommendation: **Accept with modifications**
+
+1. **Fold into Step 5**, not a separate Step 5.5.
+2. **Keep checks 1 (lifecycle wiring) and 4 (read-path symmetry)** as-is. These are high-signal and novel.
+3. **Weaken check 2** to "is config declared as deployment-configurable?" without prescribing mechanism.
+4. **Drop check 3** — it's redundant with an expanded Step 5.
+5. **Drop check 5** — false-positive risk on utility functions is too high.
+6. **Add cross-model requirement**: the composition audit must be run by a different model instance, or replaced with a structural symbol-reference parse.
+7. **Add domain-language translation guidance** for each retained check — a two-column table mapping the implementation question to the domain-language question the human actually hears.

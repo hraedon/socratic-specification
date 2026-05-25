@@ -220,20 +220,38 @@ A decision cannot remain unclassified in the final spec.
 
 ---
 
-### Step 5: Pre-Synthesis Consistency Audit
+### Step 5: Pre-Synthesis Consistency and Composition Audit
 
 Before synthesis, the AI performs a full pass over all accumulated answers, assumptions, and requirements to check for:
+
+**Consistency checks:**
 
 - Contradictions between early assumptions and later answers
 - Requirements that conflict with each other
 - High-coupling decisions whose classification is inconsistent with stated requirements
 - Glossary terms used inconsistently across sections
 
-The audit produces an explicit output regardless of whether conflicts are found:
+**Composition checks** *(added per debate 005 resolution; only applied to items in MVP scope to avoid false positives on deferred work):*
 
-> *"Consistency audit complete. I reviewed [N] requirements, [N] assumptions, and [N] high-coupling decisions. [No conflicts found. / I found the following conflicts that need resolution before synthesis: [list].]"*
+- **Lifecycle wiring** — for every recurring, scheduled, background, or cleanup behavior the spec describes, is there an AC that places it in the runtime lifecycle? *Symptom this catches: a "daily scan" requirement with no AC saying when the scan loop starts running.*
+- **Read-path symmetry** — for every data producer or event log the spec describes (scan history, alert log, audit trail), is there a stated consumer? *Symptom this catches: a `scan_history` table written by an automated job that no FR ever reads.*
+- **Configuration surface** — for every configurable behavior, is the spec explicit that it is deployment-configurable (without prescribing the mechanism)? *Symptom this catches: an `alert_email` field defined with no statement that the operator must be able to set it. The spec must say "the operator can set this"; it must not say "via env var SMTP_HOST".*
 
-A clean audit explicitly states what was checked — it is never silent. This gives the human visibility into the audit's surface area and makes gaps attributable to scope rather than oversight. The audit does not claim to catch everything; it reports what it examined.
+**Cross-model audit requirement.** The composition checks must be performed by a model instance distinct from the one that conducted elicitation, OR replaced with a structural symbol-reference parse over the spec text. Self-review by the elicitation AI is insufficient for this class of check: the model that omitted the wiring during elicitation will not see the omission during review. The consistency checks above may continue to be run by the elicitation AI.
+
+**Domain-language translation.** All composition-check questions must be translated into the human's terms before being asked, per the Step 3 domain-language principle. Reference table:
+
+| Composition concern | Implementation-layer phrasing (do not ask the human this) | Domain-language phrasing (ask the human this) |
+|---|---|---|
+| Lifecycle wiring | "Where does `start_scheduler()` get called?" | "When should the system start doing this on its own — as soon as it's running, only when someone triggers it, or on a schedule someone sets?" |
+| Read-path symmetry | "What consumer reads the `scan_history` table?" | "When something goes wrong with a scan, how does someone find out what happened? Do they see it on a screen, get notified, or only check if they go looking?" |
+| Configuration surface | "Where does `AlertConfig` come from at runtime?" | "When would someone first set the email address for alerts — is there a place for that in the app, or does someone configure it once when setting the system up?" |
+
+The audit produces an explicit output regardless of whether gaps are found:
+
+> *"Consistency and composition audit complete. I reviewed [N] requirements, [N] assumptions, [N] high-coupling decisions, [N] lifecycle items, [N] producer/consumer pairs, and [N] configuration surfaces. Composition checks were performed by [model/method]. [No gaps found. / I found the following gaps that need resolution before synthesis: [list].]"*
+
+A clean audit explicitly states what was checked and by what — it is never silent. This gives the human visibility into the audit's surface area and makes gaps attributable to scope rather than oversight. The audit does not claim to catch everything; it reports what it examined.
 
 ---
 

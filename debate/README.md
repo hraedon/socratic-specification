@@ -15,4 +15,9 @@ When a debate item is resolved (accepted or rejected), it should be:
 | 002 | Completion rate instrumentation | Add lightweight session telemetry to measure where humans drop off | Before adding new extensions |
 | 003 | Extension proliferation vs. generalization | Define when an extension belongs in the base process vs. as an extension | Next extension (web, data pipeline, etc.) |
 | 004 | Translation risk post-hoc validation | Add a lightweight "spec smell" check that runs after synthesis, before handoff | Before spec is consumed by multi-agent pipelines |
-| 005 | Composition and lifecycle audit | Add a Step 5.5 checklist that catches orphaned modules, unstated wiring, and CRUD asymmetry | Before spec is consumed by multi-agent pipelines |
+
+## Resolved
+
+| # | Title | Resolution |
+|---|---|---|
+| 005 | Composition and lifecycle audit | **Accepted with modifications** (2026-05-25) — folded into process.md §Step 5 per [DeepSeek adversarial review](../critique.md). See [resolved/005-composition-audit.md](resolved/005-composition-audit.md). |

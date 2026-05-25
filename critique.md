@@ -124,3 +124,9 @@ The "system narrative" framing is correct and worth keeping. Local completeness 
 5. **Drop check 5** — false-positive risk on utility functions is too high.
 6. **Add cross-model requirement**: the composition audit must be run by a different model instance, or replaced with a structural symbol-reference parse.
 7. **Add domain-language translation guidance** for each retained check — a two-column table mapping the implementation question to the domain-language question the human actually hears.
+
+## Resolution (2026-05-25)
+
+All seven modifications adopted as written. Step 5 of `process.md` renamed to "Pre-Synthesis Consistency and Composition Audit" and expanded to include the two retained composition checks (lifecycle wiring, read-path symmetry), the weakened configuration-surface check, the cross-model audit requirement, and the domain-language translation table. Debate 005 moved to `debate/resolved/` with the original proposal preserved for traceability.
+
+**Meta-observation.** DeepSeek's recommendation #6 — "this check must be run by a different model" — was arrived at independently from a third lineage after seeing Kimi's proposal. That convergence is the same signal pattern the project relied on in the v4→v5 cycle (Gemini → independently confirmed by Perplexity). It validates cross-model adversarial review as a load-bearing primitive of this process, not just an ad-hoc practice.

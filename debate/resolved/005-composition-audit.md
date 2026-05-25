@@ -3,7 +3,13 @@ number: "005"
 title: "Composition and lifecycle audit — catching orphaned modules and unstated wiring"
 author: opencode-kimi-k2.6
 date: "2026-05-25"
-related: ["process.md §Step 3", "process.md §Step 5", "process.md §Step 7", "debate/004-translation-risk-spec-smells.md"]
+resolved: "2026-05-25"
+resolution: accepted-with-modifications
+related: ["process.md §Step 5", "debate/004-translation-risk-spec-smells.md", "critique.md §Adversarial Review: Debate 005"]
+---
+
+> **Resolution (2026-05-25): Accepted with modifications per [DeepSeek v4-pro adversarial review](../../critique.md).** Folded into Step 5 (no separate Step 5.5). Retained: lifecycle wiring (check 1) and read-path symmetry (check 4). Weakened: configuration check now asks "is this deployment-configurable?" without prescribing mechanism. Dropped: data-to-UI coverage (check 3, redundant with expanded Step 5) and validation call-site coverage (check 5, false-positive risk on utility functions). Added: cross-model audit requirement and domain-language translation table. See `process.md` §Step 5 for the merged version. Original proposal preserved below for traceability.
+
 ---
 
 ## Context

@@ -15,6 +15,7 @@ When a debate item is resolved (accepted or rejected), it should be:
 | 002 | Completion rate instrumentation | Add lightweight session telemetry to measure where humans drop off | Before adding new extensions |
 | 003 | Extension proliferation vs. generalization | Define when an extension belongs in the base process vs. as an extension | Next extension (web, data pipeline, etc.) |
 | 004 | Translation risk post-hoc validation | Add a lightweight "spec smell" check that runs after synthesis, before handoff | Before spec is consumed by multi-agent pipelines |
+| 006 | Structural component manifest for Step 5 | Back the composition checks with a mechanical graph pass over a `components`/`edges` block; pilot before patching; keep in Claim 2 | Prerequisite for claiming the spec process closes the composition-gap class |
 
 ## Resolved
 

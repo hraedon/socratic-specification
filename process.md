@@ -237,7 +237,7 @@ Before synthesis, the AI performs a full pass over all accumulated answers, assu
 - **Read-path symmetry** — for every data producer or event log the spec describes (scan history, alert log, audit trail), is there a stated consumer? *Symptom this catches: a `scan_history` table written by an automated job that no FR ever reads.*
 - **Configuration surface** — for every configurable behavior, is the spec explicit that it is deployment-configurable (without prescribing the mechanism)? *Symptom this catches: an `alert_email` field defined with no statement that the operator must be able to set it. The spec must say "the operator can set this"; it must not say "via env var SMTP_HOST".*
 
-**Cross-model audit requirement.** The composition checks must be performed by a model instance distinct from the one that conducted elicitation, OR replaced with a structural symbol-reference parse over the spec text. Self-review by the elicitation AI is insufficient for this class of check: the model that omitted the wiring during elicitation will not see the omission during review. The consistency checks above may continue to be run by the elicitation AI.
+**Blocking requirement.** Composition gaps in MVP scope block synthesis. The AI must ask the human in domain language (per the translation table below) and record the answer as an AC before proceeding. Non-MVP gaps may be recorded as assumptions. The elicitation AI performs the composition checks; for factory-bound specs, an independent architectural review runs after spec synthesis as an additional cross-model backstop.
 
 **Domain-language translation.** All composition-check questions must be translated into the human's terms before being asked, per the Step 3 domain-language principle. Reference table:
 
@@ -249,9 +249,9 @@ Before synthesis, the AI performs a full pass over all accumulated answers, assu
 
 The audit produces an explicit output regardless of whether gaps are found:
 
-> *"Consistency and composition audit complete. I reviewed [N] requirements, [N] assumptions, [N] high-coupling decisions, [N] lifecycle items, [N] producer/consumer pairs, and [N] configuration surfaces. Composition checks were performed by [model/method]. [No gaps found. / I found the following gaps that need resolution before synthesis: [list].]"*
+> *"Consistency and composition audit complete. I reviewed [N] requirements, [N] assumptions, [N] high-coupling decisions, [N] lifecycle items, [N] producer/consumer pairs, and [N] configuration surfaces. [No gaps found. / I found the following gaps that need resolution before synthesis: [list].]"*
 
-A clean audit explicitly states what was checked and by what — it is never silent. This gives the human visibility into the audit's surface area and makes gaps attributable to scope rather than oversight. The audit does not claim to catch everything; it reports what it examined.
+A clean audit explicitly states what was checked — it is never silent. This gives the human visibility into the audit's surface area and makes gaps attributable to scope rather than oversight. The audit does not claim to catch everything; it reports what it examined. Gaps in MVP scope must be resolved before synthesis proceeds.
 
 ---
 
@@ -276,12 +276,17 @@ The human confirms before synthesis begins.
 
 Before generating the artifact, the AI makes one final pass over the original vibe spec to capture informal signals — growth expectations, scale hints, future intentions — that were not elevated to formal requirements. These populate Section 15 (Handoff State — Intent Signals), clearly distinguished from requirements and explicitly linked to Section 10 (High-Coupling Decisions) so the implementing agent must address them when resolving architectural choices.
 
-The AI produces two outputs:
+Before writing the canonical artifact, the AI attaches categorical provenance to functional requirements, business rules, high-coupling decisions, acceptance criteria, assumptions, and risks: `human_stated`, `translated_confirmed`, `repo_observed`, `agent_inferred`, `assumed`, or `externally_verified`. These categories route review; they are not model confidence scores. Notes identify the source or confirmation briefly without embedding sensitive content.
 
-1. **`spec.md`** — the human-readable artifact. See **Spec Artifact Template** below.
-2. **`spec.yaml`** — the machine-readable sidecar. See **`spec.template.yaml`** in this repo for the full schema.
+The AI produces one canonical artifact and two generated views:
 
-Both outputs must be kept in sync. If they conflict, `spec.md` is the source of truth and `spec.yaml` should be corrected. Implementing agents and orchestration tools should consume `spec.yaml` for programmatic access to requirements, MVP tags, dependency relationships, and handoff state — not parse the markdown.
+1. **`spec.yaml`** — the canonical, versioned specification. See **`spec.template.yaml`** and `schemas/spec-v2.schema.json`.
+2. **`spec.md`** — a deterministic human-readable rendering of `spec.yaml`.
+3. **`decision-brief.md`** — a concise, non-authoritative confirmation view containing delivery, exclusions, pending decisions, and the largest risks.
+
+Validate `spec.yaml`, then generate both views with `scripts/spec_tools.py`. The human confirms the decision brief and may inspect the full Markdown. Corrections are applied to the canonical YAML by the elicitation tool, validated, and rendered again. Generated views are never edited independently. Any divergence fails `check-sync`; there is no precedence rule for contradictory artifacts.
+
+Every confirmed intent change increments `meta.revision` and records the previous canonical fingerprint in `meta.parent_fingerprint`. Schema version changes only when the machine contract changes.
 
 ---
 
@@ -316,6 +321,9 @@ Every assumption made during elicitation is recorded explicitly in the spec arti
 ```markdown
 # Specification: [Name]
 
+**Spec ID:** [stable ID]
+**Revision:** [1..N]
+**Schema Version:** [2]
 **Spec Level:** [1 / 2 / 3]
 **Desired Level:** [what the human requested]
 **Date:** [date of synthesis]
@@ -374,6 +382,8 @@ MVP items are marked **[MVP]**.
 
 - FR-01 **[MVP]**: ...
 - FR-02: ...
+
+Each FR carries categorical provenance in canonical YAML. The generated Markdown may show this as a compact source annotation; the human is never asked to edit provenance syntax.
 
 ---
 
@@ -435,6 +445,16 @@ Decisions where being wrong scales in cost with implementation depth. When resol
 
 ---
 
+## 10A. Risk Register
+
+The largest delivery or hard-to-reverse risks. Risks are categorical and evidence-routed; do not invent numerical confidence or probability.
+
+| ID | Risk | Impact | Mitigation | Owner | Reversibility | Human decision? |
+|---|---|---|---|---|---|---|
+| RISK-01 | ... | ... | ... | ... | Easy / Costly / Irreversible / Unknown | Yes / No |
+
+---
+
 ## 11. Acceptance Criteria and Test Plan
 
 **Testable items** — each maps to one or more functional requirements:
@@ -468,6 +488,8 @@ The agent is responsible for determining build sequence based on architectural d
 1. Map value phases to an implementation sequence
 2. Identify any architectural prerequisites not captured in value phases
 3. Surface conflicts between declared value phases and build constraints before writing code — do not silently reorder
+4. Inspect the target codebase and produce `.factory/work-plan.yaml` using `work-plan.template.yaml`
+5. Pass the work-decomposition readiness gate before implementation begins
 
 **Known prerequisites identified during spec:**
 - [FR-xx likely requires [prerequisite] — flagged during elicitation, not yet validated]
@@ -477,6 +499,28 @@ The agent is responsible for determining build sequence based on architectural d
 - [FR-xx and FR-xx are likely independent]
 
 **Limitation:** Dependency hints reflect intent and logical inference from the spec, not verified implementation constraints. Implementing agents must derive actual build order from the codebase. Do not treat these as authoritative.
+
+### Implementation Readiness Gate — factory-bound work
+
+The spec or change-spec establishes intent; it cannot establish facts about a codebase it has not inspected. Before writing code, the implementing agent converts the confirmed target intent and dependency information into a codebase-grounded work plan. This is a separate downstream artifact, not a rewrite of the intent artifact.
+
+The gate passes only when the work plan:
+
+1. States the invariant each changed contract must preserve, including its authoritative owner and any identity, ordering, round-trip, or compatibility guarantees that apply
+2. Maps every changed shared contract across its actual consumers — for example parser, domain model, persistence, API, browser, validation, comparison or hashing, export, and documentation — marking a consumer not applicable only with a reason
+3. Includes an explicit read/write compatibility matrix and real historical fixtures whenever persisted or externally exchanged formats may change
+4. Assigns every target intent item and acceptance criterion, plus every changed contract and affected consumer, to a bounded work package with prerequisites and a verifiable completion condition
+5. Defines verification at the layer where behavior is real: browser runtime tests for browser behavior, serialize/reparse and unchanged-round-trip tests for persisted data, and real-environment tests for integrations that can be run
+6. Includes adversarial cases appropriate to the change, including zero/one/many, boundary positions, missing or conflicting metadata, duplicate or missing identity, and old/current representations where applicable
+7. Receives an independent architecture and coverage review for factory-bound work; unresolved coverage gaps block implementation
+
+An implementation task is not complete merely because its local tests pass. It is complete when its assigned acceptance criteria and consumer obligations pass at the declared verification layers.
+
+**Defect-class recurrence rule:** The first defect in a class triggers a consumer-wide fix and a regression test at the violated boundary. A second occurrence of the same defect class pauses implementation. The agent must revisit the invariant, consumer map, and task boundaries before continuing; reproducing and patching only the latest symptom is insufficient.
+
+**Ownership boundary:** The implementing agent may reorder implementation work but must not silently change the human's value phases, scope, or acceptance criteria. Any genuine conflict returns to the human as a plain-language decision with impact, not as an undocumented planning assumption.
+
+These are implementation-planning controls. They do not add technical invariants to greenfield elicitation. Change-to-existing-system mode uses the pilot extension in `extensions/change-existing-system.md` and the same downstream readiness gate.
 
 ---
 
@@ -543,6 +587,12 @@ The base process handles all project types. Extensions add mode-specific probes,
 - A project may activate more than one extension simultaneously
 
 Extensions are additive — they do not replace any part of the base process.
+
+Extension governance and status live in `extensions/index.yaml`. New extensions use `extensions/extension.template.md`, meet the extensionhood/composition rules, and declare an empirical promotion bar. Pilot and proposed entries do not silently alter the stable process.
+
+### Extension: Change to an Existing System
+
+When a request changes a living repository or deployed system, activate the pilot described in `extensions/change-existing-system.md`. It produces canonical `change-spec.yaml` from `change-spec.template.yaml`, pins the inspected baseline, records preserved behavior and touched couplings, and makes compatibility, migration, rollback, and existing quality gates explicit. It is a delta to the baseline spec, not a regenerated claim to describe the entire system.
 
 ---
 

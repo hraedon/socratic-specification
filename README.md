@@ -9,7 +9,13 @@ A well-designed elicitation process can produce a production-grade spec from a v
 ## What's Here
 
 - **[process.md](process.md)** — The full specification process: roles, spec levels, elicitation steps, the spec artifact template, and process extensions (starting with Mobile)
-- **[spec.template.yaml](spec.template.yaml)** — Machine-readable schema for the spec artifact. Produced alongside `spec.md` during synthesis. Intended for consumption by implementing agents and orchestration tools.
+- **[spec.template.yaml](spec.template.yaml)** — Canonical schema-v2 specification template. Generated Markdown is a view of this artifact.
+- **[work-plan.template.yaml](work-plan.template.yaml)** — Machine-readable contract for the factory's work-decomposition phase. Produced from the confirmed spec or change-spec plus inspection of the target codebase before implementation begins.
+- **[change-spec.template.yaml](change-spec.template.yaml)** — Canonical delta contract for changes to existing systems.
+- **[scripts/spec_tools.py](scripts/spec_tools.py)** — Structural and semantic validation, deterministic rendering, synchronization checks, and readiness/handoff gates.
+- **[evals/](evals/)** — Regression cases for evaluating the process without prescribing exact wording.
+- **[research/project-insight-mining-plan.md](research/project-insight-mining-plan.md)** — Evidence protocol for extracting lessons from projects produced from Socratic specs.
+- **[scripts/inventory_projects.py](scripts/inventory_projects.py)** — Read-only metadata census that seeds the mining manifest without copying project content.
 
 ## How It Works
 
@@ -17,6 +23,8 @@ A well-designed elicitation process can produce a production-grade spec from a v
 2. An AI partner reads it, detects the project type, and confirms its understanding
 3. The AI iterates with the human using targeted domain-language questions, translating answers into technical requirements
 4. The AI synthesizes a structured spec artifact ready for an implementing agent
+5. The canonical YAML is validated and rendered into a full human view plus a concise decision brief
+6. For factory-bound work, the implementing agent inspects the target codebase and produces a verified work plan before writing code
 
 ## Spec Levels
 
@@ -36,25 +44,56 @@ The human declares a desired level. The AI assesses what's actually achievable a
 - **Testing at the baseline** — every spec identifies testable behaviors and acceptance criteria from Level 1
 - **High-coupling decisions** — load-bearing architectural choices are classified explicitly rather than left implicit
 - **MVP definition** — human-declared value priority, separate from implementation sequencing
+- **One canonical contract** — YAML is authoritative; human-readable artifacts are generated and fingerprinted
+- **Categorical provenance** — important claims say whether they were stated, confirmed, observed, inferred, assumed, or externally verified
+- **Evidence before promotion** — process additions graduate through evaluation cases and independent project evidence
 
 ## Process Extensions
 
 The base process handles all project types. Extensions activate for specific project types detected from the vibe spec:
 
 - **Mobile (iOS / Android)** — platform declaration, offline behavior, permissions, screen flow diagram
+- **Change to an existing system (pilot)** — baseline, preserved behavior, blast radius, compatibility, migration, rollback, and existing gates
 
-Additional extensions (web, data pipeline, etc.) follow the same pattern.
+The machine-readable registry and governance rules are in [extensions/index.yaml](extensions/index.yaml).
 
 ## Output Artifacts
 
-Each completed spec produces two files:
+Each completed spec produces one canonical file and two generated human views:
 
 | File | Purpose |
 |---|---|
-| `spec.md` | Human-readable specification. Source of truth. |
-| `spec.yaml` | Machine-readable sidecar. For programmatic consumption by agents and orchestration tools. |
+| `spec.yaml` | Canonical, versioned specification. Source of truth. |
+| `spec.md` | Generated full human-readable specification. |
+| `decision-brief.md` | Generated concise confirmation surface for the human. |
 
-If they conflict, `spec.md` wins.
+Generated files carry the canonical fingerprint. If they differ, validation fails and they must be regenerated; neither silently wins.
+
+Factory-bound implementation then produces an additional downstream artifact:
+
+| File | Purpose |
+|---|---|
+| `.factory/work-plan.yaml` | Codebase-grounded implementation sequence, invariants, affected consumers, compatibility work, and verification gates. |
+
+This file is not part of elicitation and does not amend the human's spec. It records how an implementing agent will satisfy that spec in the codebase it actually inspected.
+
+## Tooling
+
+```bash
+python scripts/spec_tools.py validate spec.yaml --ready
+python scripts/spec_tools.py render spec.yaml --output spec.md
+python scripts/spec_tools.py brief spec.yaml --output decision-brief.md
+python scripts/spec_tools.py check-sync spec.yaml spec.md
+python scripts/spec_tools.py validate .factory/work-plan.yaml --ready
+python scripts/spec_tools.py validate .factory/work-plan.yaml --handoff
+python scripts/spec_tools.py validate change-spec.yaml --kind change-spec --ready
+python scripts/spec_tools.py render-change change-spec.yaml --output change-spec.md
+python scripts/spec_tools.py check-sync change-spec.yaml change-spec.md --kind change-spec
+```
+
+Install development dependencies with `python -m pip install -r requirements-dev.txt`; run contract tests with `python -m pytest -q`.
+
+Legacy specifications used the implicit sidecar format. Preserve their history and follow [the v1-to-v2 migration guide](docs/schema-migration-v1-to-v2.md) when a project needs a canonical revision.
 
 ## Status
 

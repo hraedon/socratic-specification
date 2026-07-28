@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Socratic Extension Registry v1",
+  "type": "object",
+  "required": ["registry_version", "governance", "entries"],
+  "properties": {
+    "registry_version": {"const": 1},
+    "governance": {
+      "type": "object",
+      "required": ["extension_threshold", "criteria", "rules"],
+      "properties": {
+        "extension_threshold": {"type": "integer", "minimum": 1},
+        "criteria": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "rules": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "status", "source", "activation_signals", "composes", "schema_fragment", "last_validated", "promotion_bar"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "kind": {"enum": ["extension", "guardrail", "archetype"]},
+          "status": {"enum": ["proposed", "pilot", "stable", "deprecated"]},
+          "source": {"type": "string", "minLength": 1},
+          "activation_signals": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
+          "composes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "schema_fragment": {"type": ["string", "null"]},
+          "last_validated": {"type": "string", "format": "date"},
+          "promotion_bar": {"type": ["string", "null"]}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

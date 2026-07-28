@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Socratic Session Metrics v1",
+  "type": "object",
+  "required": ["metrics_version", "session_key", "project_key", "mode", "started_at", "highest_step", "rounds_completed", "human_questions", "human_corrections", "desired_level", "achieved_level", "reached_synthesis", "work_plan_revisions", "implementation_human_decisions", "defects", "acceptance_criteria_revisions", "value_phase_accepted"],
+  "properties": {
+    "metrics_version": {"const": 1},
+    "session_key": {"type": "string", "minLength": 1},
+    "project_key": {"type": "string", "minLength": 1},
+    "mode": {"enum": ["greenfield", "change_existing_system"]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "highest_step": {"type": "integer", "minimum": 0, "maximum": 7},
+    "rounds_completed": {"type": "integer", "minimum": 0},
+    "human_questions": {"type": "integer", "minimum": 0},
+    "human_corrections": {"type": "integer", "minimum": 0},
+    "desired_level": {"type": "integer", "minimum": 1, "maximum": 3},
+    "achieved_level": {"type": ["integer", "null"], "minimum": 1, "maximum": 3},
+    "reached_synthesis": {"type": "boolean"},
+    "time_to_synthesis_seconds": {"type": ["integer", "null"], "minimum": 0},
+    "spec_word_count": {"type": ["integer", "null"], "minimum": 0},
+    "decision_brief_corrected": {"type": ["boolean", "null"]},
+    "work_plan_revisions": {"type": "integer", "minimum": 0},
+    "post_implementation_plan_revisions": {"type": "integer", "minimum": 0},
+    "implementation_human_decisions": {"type": "integer", "minimum": 0},
+    "defects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["class", "count"],
+        "properties": {
+          "class": {"enum": ["elicitation_gap", "translation_gap", "spec_inconsistency", "decomposition_gap", "implementation_error", "environment_gap", "compatibility_gap"]},
+          "count": {"type": "integer", "minimum": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "acceptance_criteria_revisions": {"type": "integer", "minimum": 0},
+    "time_to_first_useful_delivery_seconds": {"type": ["integer", "null"], "minimum": 0},
+    "value_phase_accepted": {"type": ["boolean", "null"]}
+  },
+  "additionalProperties": false
+}

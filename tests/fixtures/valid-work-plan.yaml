@@ -1,0 +1,129 @@
+plan_version: 1
+plan_revision: 1
+source:
+  artifact_path: tests/fixtures/valid-spec-v2.yaml
+  artifact_kind: spec
+  artifact_fingerprint: sha256:793a81ce9387fc2a74afcfe33498e896c69522c04ea95e5d0e24969a03df24c6
+  repository: /projects/example
+  base_commit: abc123
+  head_commit: abc123
+  change_mode: new_system
+quality_gates: []
+phase_plan:
+  target_value_phase: 1
+  intent_ids: [FR-01, FR-02]
+  architectural_prerequisites: []
+  value_build_conflicts: []
+invariants:
+  - id: INV-01
+    statement: A saved plant retains the same stable identity and details when reopened unchanged.
+    authoritative_owner: Plant domain model
+    dimensions:
+      identity: Plant IDs remain stable across persistence round trips.
+      ordering: "not_applicable: plant order is not meaningful"
+      round_trip: Unchanged records serialize and reparse without semantic differences.
+      compatibility: "not_applicable: first persisted version"
+    verification_ids: [VERIFY-01]
+changed_contracts:
+  - id: CONTRACT-01
+    name: Plant record
+    invariant_ids: [INV-01]
+    change: Introduce the first canonical plant representation.
+    authority: Plant domain model
+    consumers:
+      - {layer: parser, location: "", status: not_applicable, evidence: No external parser exists., work_package_ids: []}
+      - {layer: domain_model, location: plant, status: affected, evidence: Defines the canonical record., work_package_ids: [WP-01]}
+      - {layer: persistence, location: plant_store, status: affected, evidence: Stores and reloads records., work_package_ids: [WP-01]}
+      - {layer: api, location: "", status: not_applicable, evidence: No API is in scope., work_package_ids: []}
+      - {layer: browser, location: "", status: not_applicable, evidence: Native local UI., work_package_ids: []}
+      - {layer: validation, location: plant_validation, status: affected, evidence: Checks interval constraints., work_package_ids: [WP-01]}
+      - {layer: comparison_hashing, location: "", status: not_applicable, evidence: No comparisons or hashes exist., work_package_ids: []}
+      - {layer: export, location: "", status: not_applicable, evidence: Export is outside MVP., work_package_ids: []}
+      - {layer: documentation, location: user_help, status: affected, evidence: Describes valid fields., work_package_ids: [WP-01]}
+compatibility:
+  required: false
+  rationale: This is the first persisted representation.
+  versions: []
+  migration_steps: []
+work_packages:
+  - id: WP-01
+    sequence: 1
+    value_phase: 1
+    status: pending
+    title: Implement the plant record and due-list vertical slice
+    kind: behavior
+    intent_ids: [FR-01, FR-02]
+    acceptance_criteria_ids: [AC-01, AC-02]
+    invariant_ids: [INV-01]
+    contract_ids: [CONTRACT-01]
+    owns_contracts: [CONTRACT-01]
+    depends_on: []
+    scope:
+      in: [Domain model, persistence, validation, due-list UI, documentation]
+      out: [Notifications, synchronization]
+    affected_consumers:
+      - CONTRACT-01:domain_model:plant
+      - CONTRACT-01:persistence:plant_store
+      - CONTRACT-01:validation:plant_validation
+      - CONTRACT-01:documentation:user_help
+    verification_ids: [VERIFY-01, VERIFY-02]
+    done_when: Both acceptance criteria and the unchanged round-trip invariant pass.
+verification:
+  - id: VERIFY-01
+    level: integration
+    obligation: Save, reload, and compare unchanged plant records.
+    command: pytest tests/test_plant_store.py
+    expected: Stable identity and equivalent details after reload.
+    fixture_paths: []
+    covers_intent_ids: [FR-01]
+    covers_acceptance_criteria_ids: [AC-01]
+    covers_invariant_ids: [INV-01]
+    covers_contract_ids: [CONTRACT-01]
+    result: pending
+    evidence: ""
+  - id: VERIFY-02
+    level: runtime
+    obligation: Exercise zero, one, and multiple due plants in the real UI.
+    command: pytest tests/test_due_list_runtime.py
+    expected: Exactly due plants are marked.
+    fixture_paths: []
+    covers_intent_ids: [FR-02]
+    covers_acceptance_criteria_ids: [AC-02]
+    covers_invariant_ids: []
+    covers_contract_ids: [CONTRACT-01]
+    result: pending
+    evidence: ""
+adversarial_matrix:
+  - {case: zero_one_many, applicability: required, reason: Collection cardinality changes due-list behavior., verification_ids: [VERIFY-02]}
+  - {case: first_middle_last, applicability: not_applicable, reason: Plant order is not meaningful., verification_ids: []}
+  - {case: missing_conflicting_metadata, applicability: not_applicable, reason: No metadata merge exists., verification_ids: []}
+  - {case: duplicate_missing_identity, applicability: required, reason: Stable plant identity is an invariant., verification_ids: [VERIFY-01]}
+  - {case: old_current_representations, applicability: not_applicable, reason: This is the first version., verification_ids: []}
+  - {case: unchanged_browser_round_trip, applicability: not_applicable, reason: No browser is in scope., verification_ids: []}
+readiness_review:
+  reviewer: independent-planner
+  reviewed_at: "2026-07-14T00:00:00Z"
+  invariant_coverage: pass
+  consumer_coverage: pass
+  compatibility_coverage: pass
+  fr_ac_coverage: pass
+  work_package_coverage: pass
+  verification_coverage: pass
+  quality_gate_coverage: pass
+  adversarial_coverage: pass
+  unresolved_findings: []
+defect_classes: []
+handoff:
+  base_commit: abc123
+  head_commit: ""
+  invariant_ids: [INV-01]
+  changed_contract_ids: [CONTRACT-01]
+  persisted_formats_affected: []
+  migration_versions_and_fixtures: []
+  consumers_inspected: []
+  prior_findings_and_regressions: []
+  commands_run: []
+  known_limitations: []
+  independent_reviewer: ""
+  reviewed_at: ""
+  review_result: pending

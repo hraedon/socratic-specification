@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hraedon/socratic-specification/schemas/work-plan-v1.schema.json",
+  "title": "Socratic Work Decomposition Plan v1",
+  "type": "object",
+  "required": [
+    "plan_version",
+    "plan_revision",
+    "source",
+    "quality_gates",
+    "phase_plan",
+    "invariants",
+    "changed_contracts",
+    "compatibility",
+    "work_packages",
+    "verification",
+    "adversarial_matrix",
+    "readiness_review",
+    "defect_classes",
+    "handoff"
+  ],
+  "properties": {
+    "plan_version": {"const": 1},
+    "plan_revision": {"type": "integer", "minimum": 1},
+    "source": {
+      "type": "object",
+      "required": ["artifact_path", "artifact_kind", "artifact_fingerprint", "repository", "base_commit", "head_commit", "change_mode"],
+      "properties": {
+        "artifact_path": {"type": "string", "minLength": 1},
+        "artifact_kind": {"enum": ["spec", "change_spec"]},
+        "artifact_fingerprint": {"type": "string", "minLength": 1},
+        "repository": {"type": "string", "minLength": 1},
+        "base_commit": {"type": "string", "minLength": 1},
+        "head_commit": {"type": "string", "minLength": 1},
+        "change_mode": {"enum": ["new_system", "existing_system"]}
+      },
+      "additionalProperties": false
+    },
+    "quality_gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "command", "evidence", "required", "result", "result_evidence"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "command": {"type": "string"},
+          "evidence": {"type": "string", "minLength": 1},
+          "required": {"type": "boolean"},
+          "result": {"enum": ["pending", "pass", "fail"]},
+          "result_evidence": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "phase_plan": {
+      "type": "object",
+      "required": ["target_value_phase", "intent_ids", "architectural_prerequisites", "value_build_conflicts"],
+      "properties": {
+        "target_value_phase": {"type": "integer", "minimum": 0},
+        "intent_ids": {"type": "array", "items": {"$ref": "#/$defs/intentId"}, "minItems": 1, "uniqueItems": true},
+        "architectural_prerequisites": {"type": "array", "items": {"type": "object"}},
+        "value_build_conflicts": {"type": "array", "items": {"type": "object"}}
+      },
+      "additionalProperties": false
+    },
+    "invariants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "statement", "authoritative_owner", "dimensions", "verification_ids"],
+        "properties": {
+          "id": {"$ref": "#/$defs/invariantId"},
+          "statement": {"type": "string", "minLength": 1},
+          "authoritative_owner": {"type": "string", "minLength": 1},
+          "dimensions": {
+            "type": "object",
+            "required": ["identity", "ordering", "round_trip", "compatibility"],
+            "properties": {
+              "identity": {"type": "string", "minLength": 1},
+              "ordering": {"type": "string", "minLength": 1},
+              "round_trip": {"type": "string", "minLength": 1},
+              "compatibility": {"type": "string", "minLength": 1}
+            },
+            "additionalProperties": false
+          },
+          "verification_ids": {"type": "array", "items": {"$ref": "#/$defs/verificationId"}, "minItems": 1, "uniqueItems": true}
+        },
+        "additionalProperties": false
+      }
+    },
+    "changed_contracts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "invariant_ids", "change", "authority", "consumers"],
+        "properties": {
+          "id": {"$ref": "#/$defs/contractId"},
+          "name": {"type": "string", "minLength": 1},
+          "invariant_ids": {"type": "array", "items": {"$ref": "#/$defs/invariantId"}, "uniqueItems": true},
+          "change": {"type": "string", "minLength": 1},
+          "authority": {"type": "string", "minLength": 1},
+          "consumers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["layer", "location", "status", "evidence", "work_package_ids"],
+              "properties": {
+                "layer": {"enum": ["parser", "domain_model", "persistence", "api", "browser", "validation", "comparison_hashing", "export", "documentation", "other"]},
+                "location": {"type": "string"},
+                "status": {"enum": ["affected", "inspected_unaffected", "not_applicable"]},
+                "evidence": {"type": "string", "minLength": 1},
+                "work_package_ids": {"type": "array", "items": {"$ref": "#/$defs/workPackageId"}, "uniqueItems": true}
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "required": ["required", "rationale", "versions", "migration_steps"],
+      "properties": {
+        "required": {"type": "boolean"},
+        "rationale": {"type": "string", "minLength": 1},
+        "versions": {"type": "array", "items": {"type": "object"}},
+        "migration_steps": {"type": "array", "items": {"type": "object"}}
+      },
+      "additionalProperties": false
+    },
+    "work_packages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "sequence", "value_phase", "status", "title", "kind", "intent_ids", "acceptance_criteria_ids", "invariant_ids", "contract_ids", "owns_contracts", "depends_on", "scope", "affected_consumers", "verification_ids", "done_when"],
+        "properties": {
+          "id": {"$ref": "#/$defs/workPackageId"},
+          "sequence": {"type": "integer", "minimum": 1},
+          "value_phase": {"type": "integer", "minimum": 1},
+          "status": {"enum": ["pending", "in_progress", "pass", "fail", "blocked"]},
+          "title": {"type": "string", "minLength": 1},
+          "kind": {"enum": ["behavior", "architectural_prerequisite", "migration", "integration"]},
+          "intent_ids": {"type": "array", "items": {"$ref": "#/$defs/intentId"}, "uniqueItems": true},
+          "acceptance_criteria_ids": {"type": "array", "items": {"$ref": "#/$defs/acceptanceId"}, "uniqueItems": true},
+          "invariant_ids": {"type": "array", "items": {"$ref": "#/$defs/invariantId"}, "uniqueItems": true},
+          "contract_ids": {"type": "array", "items": {"$ref": "#/$defs/contractId"}, "uniqueItems": true},
+          "owns_contracts": {"type": "array", "items": {"$ref": "#/$defs/contractId"}, "uniqueItems": true},
+          "depends_on": {"type": "array", "items": {"$ref": "#/$defs/workPackageId"}, "uniqueItems": true},
+          "scope": {"type": "object", "required": ["in", "out"]},
+          "affected_consumers": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "verification_ids": {"type": "array", "items": {"$ref": "#/$defs/verificationId"}, "minItems": 1, "uniqueItems": true},
+          "done_when": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "verification": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "level", "obligation", "command", "expected", "fixture_paths", "covers_intent_ids", "covers_acceptance_criteria_ids", "covers_invariant_ids", "covers_contract_ids", "result", "evidence"],
+        "properties": {
+          "id": {"$ref": "#/$defs/verificationId"},
+          "level": {"enum": ["unit", "integration", "runtime", "real_environment", "review"]},
+          "obligation": {"type": "string", "minLength": 1},
+          "command": {"type": "string"},
+          "expected": {"type": "string", "minLength": 1},
+          "fixture_paths": {"type": "array", "items": {"type": "string"}},
+          "covers_intent_ids": {"type": "array", "items": {"$ref": "#/$defs/intentId"}, "uniqueItems": true},
+          "covers_acceptance_criteria_ids": {"type": "array", "items": {"$ref": "#/$defs/acceptanceId"}, "uniqueItems": true},
+          "covers_invariant_ids": {"type": "array", "items": {"$ref": "#/$defs/invariantId"}, "uniqueItems": true},
+          "covers_contract_ids": {"type": "array", "items": {"$ref": "#/$defs/contractId"}, "uniqueItems": true},
+          "result": {"enum": ["pending", "pass", "fail"]},
+          "evidence": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "adversarial_matrix": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["case", "applicability", "reason", "verification_ids"],
+        "properties": {
+          "case": {"type": "string", "minLength": 1},
+          "applicability": {"enum": ["required", "not_applicable"]},
+          "reason": {"type": "string"},
+          "verification_ids": {"type": "array", "items": {"$ref": "#/$defs/verificationId"}, "uniqueItems": true}
+        },
+        "additionalProperties": false
+      }
+    },
+    "readiness_review": {"type": "object"},
+    "defect_classes": {"type": "array", "items": {"type": "object"}},
+    "handoff": {"type": "object"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "intentId": {"type": "string", "pattern": "^(FR|CAC)-[0-9]+$"},
+    "acceptanceId": {"type": "string", "pattern": "^(AC|CAC)-[0-9]+$"},
+    "invariantId": {"type": "string", "pattern": "^INV-[0-9]+$"},
+    "contractId": {"type": "string", "pattern": "^CONTRACT-[0-9]+$"},
+    "workPackageId": {"type": "string", "pattern": "^WP-[0-9]+$"},
+    "verificationId": {"type": "string", "pattern": "^VERIFY-[0-9]+$"}
+  }
+}

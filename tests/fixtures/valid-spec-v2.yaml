@@ -1,0 +1,144 @@
+meta:
+  name: Plant Reminder
+  schema_version: 2
+  spec_id: plant-reminder
+  revision: 1
+  parent_fingerprint: null
+  spec_level: 2
+  desired_level: 2
+  date: "2026-07-14"
+  extensions: []
+
+problem:
+  statement: People forget when individual plants were last watered.
+  user_operator: A person caring for houseplants on their own device.
+  success_condition: The person can see which plant needs water next.
+
+glossary:
+  - term: Due
+    definition: A plant whose next watering date is today or earlier.
+
+scope:
+  in_scope:
+    - Record plants and watering events.
+    - Show which plants are due.
+  out_of_scope:
+    - Automated irrigation.
+
+mvp:
+  description: Record plants and see which are due for watering.
+  fr_ids: [FR-01, FR-02]
+  rationale: This closes the basic reminder loop without notification infrastructure.
+  architectural_prerequisites: []
+
+functional_requirements:
+  - id: FR-01
+    mvp: true
+    text: Given a new plant, when the user records its name and interval, the system saves it.
+    provenance:
+      kind: translated_confirmed
+      note: Confirmed during MVP discussion.
+  - id: FR-02
+    mvp: true
+    text: Given recorded plants, when the user opens the list, the system marks every due plant.
+    provenance:
+      kind: human_stated
+      note: Core requested outcome.
+
+data:
+  inputs:
+    - name: Plant details
+      format: Form fields
+      source: User
+      validation: Name is non-empty and interval is positive.
+  outputs:
+    - name: Due list
+      format: Screen
+      destination: User
+  persisted_state:
+    - description: Plant and watering records
+      location: Application-owned local storage
+      retention: Until deleted by the user
+
+business_rules:
+  - id: BR-01
+    text: A plant is due when its next watering date is today or earlier.
+    provenance:
+      kind: translated_confirmed
+      note: Human confirmed the boundary condition.
+
+failure_modes:
+  - failure: Invalid interval
+    trigger: Interval is zero or negative.
+    response: Reject the save and explain the valid range.
+    notification: Inline message
+
+nfr:
+  performance: "Due list renders within 2 seconds # derived from: 'before I move to something else'"
+  reliability: "Saved plant records survive application restart # derived from: 'I should not re-enter them'"
+  operability: "Runs on one personal device # derived from: 'this is just for me'"
+
+high_coupling_decisions:
+  - decision: Storage ownership
+    status: decided
+    notes: The application owns local records; cloud sync is outside scope.
+    provenance:
+      kind: translated_confirmed
+      note: Confirmed after explaining device-loss implications.
+
+acceptance_criteria:
+  - id: AC-01
+    fr_ids: [FR-01]
+    condition: Given valid plant details, when saved and reopened, the same details are present.
+    provenance:
+      kind: translated_confirmed
+      note: Derived from FR-01 and persistence requirement.
+  - id: AC-02
+    fr_ids: [FR-02]
+    condition: Given zero, one, and multiple due plants, the list marks exactly the due plants.
+    provenance:
+      kind: translated_confirmed
+      note: Boundary cases confirmed with the user.
+
+untestable_items: []
+
+work_decomposition:
+  value_phases:
+    - phase: 1
+      label: MVP
+      fr_ids: [FR-01, FR-02]
+      rationale: Delivers the complete record-and-review loop.
+  dependency_hints:
+    - fr_id: FR-02
+      requires: [FR-01]
+      parallel_with: []
+
+open_questions: []
+assumptions: []
+
+risks:
+  - id: RISK-01
+    risk: Device loss removes locally owned history.
+    impact: The user must recreate plant records.
+    mitigation: Keep export or sync as a future option.
+    owner: Human
+    reversibility: costly
+    requires_human_decision: false
+    provenance:
+      kind: agent_inferred
+      note: Consequence of the confirmed local-only decision.
+
+handoff:
+  decisions_made:
+    - decision: Local-only MVP
+      rationale: Avoids account and sync complexity.
+  pending: []
+  intent_signals:
+    - signal: Keep it simple.
+      relevance: Prefer the smallest reliable local architecture.
+
+delta_to_next_level:
+  - gap: Recovery after device loss
+    what_would_close_it: Decide between export and synchronization.
+
+implementation_notes: []

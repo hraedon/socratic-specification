@@ -1,0 +1,44 @@
+meta:
+  name: Broken Example
+  schema_version: 2
+  spec_id: broken-example
+  revision: 1
+  parent_fingerprint: null
+  spec_level: 1
+  desired_level: 1
+  date: "2026-07-14"
+  extensions: []
+problem:
+  statement: Demonstrate a semantic reference failure.
+  user_operator: Validator author.
+  success_condition: Validation rejects the artifact.
+scope:
+  in_scope: [Validation]
+  out_of_scope: []
+mvp:
+  description: Validate one requirement.
+  fr_ids: [FR-99]
+  rationale: Test fixture.
+  architectural_prerequisites: []
+functional_requirements:
+  - id: FR-01
+    mvp: true
+    text: Given an artifact, when validated, the system reports semantic errors.
+    provenance: {kind: human_stated, note: Test}
+high_coupling_decisions: []
+acceptance_criteria:
+  - id: AC-01
+    fr_ids: [FR-01]
+    condition: Given an invalid reference, validation fails.
+    provenance: {kind: translated_confirmed, note: Test}
+work_decomposition:
+  value_phases:
+    - phase: 1
+      label: MVP
+      fr_ids: [FR-01]
+      rationale: Test.
+  dependency_hints: []
+handoff:
+  decisions_made: []
+  pending: []
+  intent_signals: []

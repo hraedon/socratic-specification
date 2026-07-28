@@ -1,0 +1,87 @@
+change_schema_version: 1
+change_revision: 1
+meta:
+  change_id: add-stable-policy-ids
+  title: Add stable identity to policy entries
+  date: "2026-07-14"
+  source_spec_id: policy-studio
+  source_spec_fingerprint: sha256:baseline
+  parent_change_fingerprint: null
+baseline:
+  repository: /projects/policy-studio
+  commit: abc123
+  release_or_state: v1
+  current_behavior: Policy entries are position-addressed and older snapshots have no stable ID.
+  quality_gates:
+    - name: Test suite
+      command: pytest -q
+      evidence: Repository test configuration
+change:
+  statement: Add persisted stable IDs while retaining support for historical snapshots.
+  user_outcome: Reordering entries no longer causes the browser to edit the wrong entry.
+  in_scope: [Parser, model, persistence, browser, diff, export]
+  out_of_scope: [Changing policy evaluation semantics]
+  provenance:
+    kind: human_stated
+    note: Requested after an observed reorder defect.
+preserved_behaviors:
+  - id: PRESERVE-01
+    behavior: Historical snapshots remain readable and unchanged reads do not rewrite them.
+    evidence: Existing v1 fixture and snapshot loader test.
+    regression_acceptance_ids: [CAC-02]
+touched_couplings:
+  - decision: Snapshot representation
+    existing_constraint: Historical snapshots are immutable evidence.
+    impact: Reads may normalize in memory but must not mutate stored snapshots.
+    preserve_or_revisit: preserve
+changed_contracts:
+  - id: CHANGE-CONTRACT-01
+    name: Policy entry
+    change: Add stable ID with deterministic migration for old snapshots.
+    preserved_invariant: Identity remains stable across reorder and unchanged round trips.
+    consumers:
+      - layer: parser
+        location: policy_parser
+        impact: Accept old and current representations.
+        verification_acceptance_ids: [CAC-01, CAC-02]
+      - layer: browser
+        location: policy_editor
+        impact: Address edits by stable ID.
+        verification_acceptance_ids: [CAC-01]
+compatibility:
+  classification: breaking
+  supported_read_versions: [1, 2]
+  emitted_write_version: 2
+  migration: Normalize v1 entries to deterministic IDs in memory and emit v2 only on an explicit save.
+  rollback: Restore the pre-migration snapshot; v1 originals remain immutable.
+  deprecation_or_communication: Document that newly saved snapshots require v2 readers.
+  historical_fixtures: [tests/fixtures/snapshot-v1.yaml, tests/fixtures/snapshot-v2.yaml]
+acceptance_criteria:
+  - id: CAC-01
+    kind: change
+    condition: Given reordered entries, editing one entry changes only the selected stable ID.
+    changed_contract_ids: [CHANGE-CONTRACT-01]
+    preserved_behavior_ids: []
+    provenance:
+      kind: translated_confirmed
+      note: Reproduction generalized to stable identity.
+  - id: CAC-02
+    kind: regression
+    condition: Given a v1 snapshot, load and unchanged inspection preserve the original bytes and semantics.
+    changed_contract_ids: [CHANGE-CONTRACT-01]
+    preserved_behavior_ids: [PRESERVE-01]
+    provenance:
+      kind: repo_observed
+      note: Existing historical fixture establishes the baseline.
+risks:
+  - id: CHANGE-RISK-01
+    risk: Deterministic migration could collide.
+    impact: Two entries could receive the same identity.
+    mitigation: Collision detection and adversarial fixtures.
+    reversibility: costly
+    requires_human_decision: false
+handoff:
+  decisions_made: []
+  pending: []
+  intent_signals: []
+  work_plan_path: .factory/work-plan.yaml

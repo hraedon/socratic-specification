@@ -1,3 +1,11 @@
 
 # never commit the local denylist (identifier gate)
 .identifiers-denylist.local
+
+# Python tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local project-mining census (may contain repository names/paths)
+/research/corpus-manifest.yaml

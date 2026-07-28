@@ -237,7 +237,9 @@ Before synthesis, the AI performs a full pass over all accumulated answers, assu
 - **Read-path symmetry** — for every data producer or event log the spec describes (scan history, alert log, audit trail), is there a stated consumer? *Symptom this catches: a `scan_history` table written by an automated job that no FR ever reads.*
 - **Configuration surface** — for every configurable behavior, is the spec explicit that it is deployment-configurable (without prescribing the mechanism)? *Symptom this catches: an `alert_email` field defined with no statement that the operator must be able to set it. The spec must say "the operator can set this"; it must not say "via env var SMTP_HOST".*
 
-**Blocking requirement.** Composition gaps in MVP scope block synthesis. The AI must ask the human in domain language (per the translation table below) and record the answer as an AC before proceeding. Non-MVP gaps may be recorded as assumptions. The elicitation AI performs the composition checks; for factory-bound specs, an independent architectural review runs after spec synthesis as an additional cross-model backstop.
+**Cross-model audit requirement.** The composition checks must be verified by a mechanism independent of the elicitation AI's prose self-review. This is satisfied by the structural validation pass (`spec_tools.py validate --ready`), which parses the canonical YAML and checks referent integrity, lifecycle wiring, and read-path symmetry mechanically — the "structural symbol-reference parse" branch of the original requirement (commit 29e56c4). The elicitation AI performs the prose-level composition checks during elicitation; the structural parse is the independent verification that catches what self-review cannot. For factory-bound specs, an independent architectural review runs after spec synthesis as an additional cross-model backstop.
+
+**Blocking requirement.** Composition gaps in MVP scope block synthesis. The AI must ask the human in domain language (per the translation table below) and record the answer as an AC before proceeding. Non-MVP gaps may be recorded as assumptions.
 
 **Domain-language translation.** All composition-check questions must be translated into the human's terms before being asked, per the Step 3 domain-language principle. Reference table:
 
@@ -249,7 +251,7 @@ Before synthesis, the AI performs a full pass over all accumulated answers, assu
 
 The audit produces an explicit output regardless of whether gaps are found:
 
-> *"Consistency and composition audit complete. I reviewed [N] requirements, [N] assumptions, [N] high-coupling decisions, [N] lifecycle items, [N] producer/consumer pairs, and [N] configuration surfaces. [No gaps found. / I found the following gaps that need resolution before synthesis: [list].]"*
+> *"Consistency and composition audit complete. I reviewed [N] requirements, [N] assumptions, [N] high-coupling decisions, [N] lifecycle items, [N] producer/consumer pairs, and [N] configuration surfaces. Structural validation: [passed / N issues found]. [No gaps found. / I found the following gaps that need resolution before synthesis: [list].]"*
 
 A clean audit explicitly states what was checked — it is never silent. This gives the human visibility into the audit's surface area and makes gaps attributable to scope rather than oversight. The audit does not claim to catch everything; it reports what it examined. Gaps in MVP scope must be resolved before synthesis proceeds.
 

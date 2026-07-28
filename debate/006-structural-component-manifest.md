@@ -40,19 +40,21 @@ Two findings change the shape of the proposal:
 ## Problem
 
 Step 5 now performs composition checks (lifecycle wiring, read-path symmetry,
-configuration surface) — but as a **prose self-review pass by the same model that
-authored the spec.** `critique.md:98` (DeepSeek's review of debate 005) flagged
-this precisely and it was *not* adopted:
+configuration surface). `critique.md:98` (DeepSeek's review of debate 005) flagged
+the self-review risk and recommended a cross-model or structural alternative.
+This **was** adopted in commit 29e56c4 (2026-05-25), which added:
 
-> "The model that omitted the call site during generation will not notice the
-> omission during review… If this check stays, it should be run by a different
-> model instance, or **better, as a structural parse (symbol table → list of
-> unreferenced export symbols)**. The proposal omits this requirement entirely."
+> "The composition checks must be performed by a model instance distinct from
+> the one that conducted elicitation, OR replaced with a structural
+> symbol-reference parse over the spec text. Self-review by the elicitation AI
+> is insufficient for this class of check."
 
-That recommendation is, almost exactly, RFC-015 — described before it was
-connected to RFC-015. sf2 built the structural parse and proved it works; socratic
-identified the need for it and then shipped the self-review version anyway. The
-open question is whether to close that gap.
+However, the structural-parse branch remained unimplemented until `spec_tools.py`
+shipped (2026-07 wave). The requirement existed on paper; the mechanism did not.
+This debate's original framing ("it was *not* adopted") was incorrect — the
+requirement was adopted but not yet mechanically enforceable. The open question
+this debate addresses remains valid: how to make the structural parse the
+primary verification path rather than a prose aspiration.
 
 ## Position
 
@@ -128,3 +130,16 @@ for itself. Keep the framing in Claim 2.
 Not blocking. Complementary to 004 (translation smells) and the resolved 005
 (composition audit). Prerequisite for any future claim that the spec process — not
 just a downstream gate — closes the composition-gap failure class.
+
+## Resolution Addendum (2026-07-28)
+
+The cross-model audit requirement this debate's Problem section references was
+adopted in commit 29e56c4 (2026-05-25) — the original "not adopted" framing above
+has been corrected. The requirement stated: distinct model instance OR structural
+symbol-reference parse. With `spec_tools.py validate --ready` now shipping as the
+structural parse, the OR branch is mechanically satisfied. process.md Step 5 has
+been updated to name `spec_tools.py` as the independent verification mechanism.
+
+The debate's core recommendation — pilot the graph pass against cert-watch gaps
+before promoting — remains open and valid. The structural parse satisfies the
+*minimum* cross-model requirement; the graph pass would strengthen it further.

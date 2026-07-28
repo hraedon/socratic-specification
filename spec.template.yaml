@@ -1,13 +1,14 @@
 # spec.template.yaml
 #
-# Machine-readable sidecar to spec.md. Produced alongside the markdown artifact
-# during Step 7 synthesis. Intended for consumption by implementing agents and
-# orchestration tools that need to query spec content programmatically.
+# Canonical machine-readable specification. Produced during Step 7 synthesis.
+# `spec.md` and `decision-brief.md` are generated views of this file; they are
+# never edited independently. Implementing agents and orchestration tools consume
+# this file directly.
 #
-# All fields present in the markdown artifact have a structured equivalent here.
-# The markdown is the human-readable source of truth; this file is the
-# machine-readable contract. If they conflict, the markdown takes precedence
-# and the YAML should be corrected.
+# All fields present in the generated markdown have a structured equivalent here.
+# If a generated view differs from this file, validation fails and the view must
+# be regenerated. Human corrections are applied here by the elicitation tool,
+# then presented again through the generated view.
 #
 # Required fields are marked [REQUIRED]. All others may be omitted if not
 # applicable at the current spec level.
@@ -18,10 +19,23 @@
 
 meta:
   name: ""                        # [REQUIRED] Short name for the spec
+  schema_version: 2               # [REQUIRED] Contract version. v1 was the implicit legacy format.
+  spec_id: ""                     # [REQUIRED] Stable ID across revisions, e.g. "plant-watering"
+  revision: 1                     # [REQUIRED] Increment when confirmed intent changes
+  parent_fingerprint: null        # Fingerprint of the prior canonical spec, or null for the first
   spec_level: 1                   # [REQUIRED] Achieved level: 1, 2, or 3
   desired_level: 1                # [REQUIRED] Level requested by the human
   date: ""                        # [REQUIRED] ISO 8601 date of synthesis
   extensions: []                  # Active extensions, e.g. ["mobile"]
+
+# ---------------------------------------------------------------------------
+# Problem Statement
+# ---------------------------------------------------------------------------
+
+problem:
+  statement: ""                   # [REQUIRED] Situation this software addresses
+  user_operator: ""               # [REQUIRED] Who runs/uses it and in what context
+  success_condition: ""           # [REQUIRED] Concrete outcome that constitutes success
 
 # ---------------------------------------------------------------------------
 # Glossary
@@ -69,6 +83,10 @@ functional_requirements:
   - id: "FR-01"                   # [REQUIRED]
     mvp: false                    # [REQUIRED] true if this FR is in the MVP
     text: ""                      # [REQUIRED] Given/when/then statement
+    provenance:                   # [REQUIRED] Why this requirement exists
+      kind: "human_stated"        # human_stated | translated_confirmed | repo_observed |
+                                  # agent_inferred | assumed | externally_verified
+      note: ""                    # Brief source/confirmation note; do not embed sensitive content
 
 # ---------------------------------------------------------------------------
 # Data
@@ -96,6 +114,9 @@ data:
 business_rules:
   - id: "BR-01"
     text: ""
+    provenance:
+      kind: "human_stated"
+      note: ""
 
 # ---------------------------------------------------------------------------
 # Error and Failure Handling
@@ -129,6 +150,9 @@ high_coupling_decisions:
   - decision: ""                  # [REQUIRED]
     status: "decided"             # [REQUIRED]
     notes: ""
+    provenance:
+      kind: "translated_confirmed"
+      note: ""
 
 # ---------------------------------------------------------------------------
 # Acceptance Criteria and Test Plan
@@ -138,6 +162,9 @@ acceptance_criteria:
   - id: "AC-01"                   # [REQUIRED]
     fr_ids: ["FR-01"]             # [REQUIRED] FRs this criterion maps to
     condition: ""                 # [REQUIRED] Given/when/then test condition
+    provenance:
+      kind: "translated_confirmed"
+      note: ""
 
 untestable_items:
   - item: ""
@@ -182,6 +209,27 @@ open_questions:
 assumptions:
   - assumption: ""
     rationale: ""
+    provenance:
+      kind: "assumed"
+      note: ""
+
+# ---------------------------------------------------------------------------
+# Risk Register
+# Optional, but recommended for factory-bound work. Categorical rather than a
+# model-generated numeric confidence score.
+# ---------------------------------------------------------------------------
+
+risks:
+  - id: "RISK-01"
+    risk: ""
+    impact: ""
+    mitigation: ""
+    owner: ""
+    reversibility: "easy"         # "easy" | "costly" | "irreversible" | "unknown"
+    requires_human_decision: false
+    provenance:
+      kind: "agent_inferred"
+      note: ""
 
 # ---------------------------------------------------------------------------
 # Handoff State

@@ -1,0 +1,90 @@
+# Canonical delta specification for a change to an existing system.
+# Generated Markdown is a review view; this YAML remains authoritative.
+
+change_schema_version: 1
+change_revision: 1
+
+meta:
+  change_id: ""                  # [REQUIRED] Stable ID for this change
+  title: ""
+  date: ""                       # ISO 8601 date
+  source_spec_id: ""             # Baseline Socratic spec ID, if one exists
+  source_spec_fingerprint: ""    # Exact baseline spec revision, if one exists
+  parent_change_fingerprint: null
+
+baseline:
+  repository: ""                 # [REQUIRED]
+  commit: ""                     # [REQUIRED before implementation]
+  release_or_state: ""
+  current_behavior: ""           # Concise description of the behavior being changed
+  quality_gates:
+    - name: ""
+      command: ""
+      evidence: ""               # Where the repository declares the gate
+
+change:
+  statement: ""                  # [REQUIRED] What changes
+  user_outcome: ""               # [REQUIRED] What becomes possible/different
+  in_scope: []
+  out_of_scope: []
+  provenance:
+    kind: "human_stated"          # Same categorical provenance vocabulary as spec v2
+    note: ""
+
+# Behavior that must remain true. Each entry needs repository or test evidence;
+# "everything else" is not an inspectable preservation claim.
+preserved_behaviors:
+  - id: "PRESERVE-01"
+    behavior: ""
+    evidence: ""                 # Existing test, code path, documentation, or observed behavior
+    regression_acceptance_ids: []
+
+touched_couplings:
+  - decision: ""                 # Existing architectural choice reached by this change
+    existing_constraint: ""
+    impact: ""
+    preserve_or_revisit: "preserve"  # "preserve" | "revisit_with_human"
+
+changed_contracts:
+  - id: "CHANGE-CONTRACT-01"
+    name: ""
+    change: ""
+    preserved_invariant: ""      # [REQUIRED before implementation]
+    consumers:
+      - layer: ""
+        location: ""
+        impact: ""
+        verification_acceptance_ids: []
+
+compatibility:
+  classification: "non_breaking" # "non_breaking" | "breaking"
+  supported_read_versions: []
+  emitted_write_version: ""
+  migration: ""                  # Required when breaking
+  rollback: ""                   # Required when breaking; recovery is acceptable if rollback is impossible
+  deprecation_or_communication: ""
+  historical_fixtures: []
+
+acceptance_criteria:
+  - id: "CAC-01"
+    kind: "change"               # "change" | "regression" | "migration" | "rollback"
+    condition: ""
+    changed_contract_ids: []
+    preserved_behavior_ids: []
+    provenance:
+      kind: "translated_confirmed"
+      note: ""
+
+risks:
+  - id: "CHANGE-RISK-01"
+    risk: ""
+    impact: ""
+    mitigation: ""
+    reversibility: "easy"        # "easy" | "costly" | "irreversible" | "unknown"
+    requires_human_decision: false
+
+handoff:
+  decisions_made: []
+  pending: []
+  intent_signals: []
+  work_plan_path: ".factory/work-plan.yaml"

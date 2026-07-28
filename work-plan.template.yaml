@@ -1,0 +1,235 @@
+# Work Decomposition Plan
+#
+# Produced during factory Stage 3 from a confirmed spec or change-spec plus inspection of the
+# target repository. This is an implementation contract, not an elicitation
+# artifact: it may determine build order, but it must not rewrite human-owned
+# scope, value phases, or acceptance criteria.
+
+plan_version: 1                  # Schema version for consumers of this artifact
+plan_revision: 1                 # Increment whenever decomposition is revised and re-reviewed
+
+source:
+  artifact_path: "spec.yaml"      # [REQUIRED] Canonical spec or change-spec
+  artifact_kind: "spec"           # [REQUIRED] "spec" | "change_spec"
+  artifact_fingerprint: ""        # [REQUIRED] Fingerprint of the exact intent artifact
+  repository: ""                  # [REQUIRED]
+  base_commit: ""                 # [REQUIRED] Revision inspected before implementation
+  head_commit: ""                 # [REQUIRED] Revision at planning time; may equal base_commit
+  change_mode: "existing_system"  # [REQUIRED] "new_system" | "existing_system"
+
+quality_gates:                    # Use [] only after confirming the repository defines none
+  - name: ""                      # Existing repository or project gate
+    command: ""                   # Exact runnable command, when available
+    evidence: ""                  # File/config/workflow establishing that this gate applies
+    required: true
+    result: "pending"             # "pending" | "pass" | "fail"
+    result_evidence: ""           # Output, report, or review evidence after execution
+
+phase_plan:
+  target_value_phase: 1           # [REQUIRED] Human-owned value phase being delivered
+                                  # Use 0 for an unphased change-spec delta.
+  intent_ids: []                  # [REQUIRED] Target FR IDs (spec) or CAC IDs (change-spec)
+  architectural_prerequisites:
+    - description: ""
+      source: ""                  # Spec hint or codebase evidence
+      work_package_ids: []
+  value_build_conflicts: []       # Must be surfaced before Stage 4; never silently reorder scope
+# - conflict: ""
+#   impact: ""
+#   human_decision_required: true
+
+# Invariants are implementation-level truths that every affected work package
+# must preserve. Include only dimensions that apply, but never leave ownership
+# or verification implicit.
+invariants:
+  - id: "INV-01"
+    statement: ""                 # [REQUIRED] Concrete, falsifiable truth
+    authoritative_owner: ""       # [REQUIRED] Module/type/store that defines the truth
+    dimensions:
+      identity: ""                # Stable identity guarantee, or "not_applicable: <reason>"
+      ordering: ""                # Meaningful ordering guarantee, or not_applicable
+      round_trip: ""              # Unchanged representation guarantee, or not_applicable
+      compatibility: ""           # Old/current representation guarantee, or not_applicable
+    verification_ids: []          # [REQUIRED] References into verification[]
+
+# One entry per shared model, schema, API, event, or persisted representation
+# changed by the phase. Use the repository's real layers and names. The common
+# chain below is a search checklist, not an assumed architecture.
+changed_contracts:
+  - id: "CONTRACT-01"
+    name: ""
+    invariant_ids: ["INV-01"]
+    change: ""                    # What changes and what deliberately does not
+    authority: ""                 # Canonical definition/owner in the repository
+    consumers:
+      - layer: "parser"           # parser | domain_model | persistence | api | browser |
+                                  # validation | comparison_hashing | export | documentation | other
+        location: ""              # File, symbol, endpoint, or document
+        status: "affected"        # "affected" | "inspected_unaffected" | "not_applicable"
+        evidence: ""              # Why the status is justified
+        work_package_ids: []      # Required when status is affected
+      - layer: "domain_model"
+        location: ""
+        status: "affected"
+        evidence: ""
+        work_package_ids: []
+      - layer: "persistence"
+        location: ""
+        status: "affected"
+        evidence: ""
+        work_package_ids: []
+      - layer: "api"
+        location: ""
+        status: "affected"
+        evidence: ""
+        work_package_ids: []
+      - layer: "browser"
+        location: ""
+        status: "affected"
+        evidence: ""
+        work_package_ids: []
+      - layer: "validation"
+        location: ""
+        status: "affected"
+        evidence: ""
+        work_package_ids: []
+      - layer: "comparison_hashing"
+        location: ""
+        status: "affected"
+        evidence: ""
+        work_package_ids: []
+      - layer: "export"
+        location: ""
+        status: "affected"
+        evidence: ""
+        work_package_ids: []
+      - layer: "documentation"
+        location: ""
+        status: "affected"
+        evidence: ""
+        work_package_ids: []
+
+# Required whenever a persisted or externally exchanged representation can
+# change. Enumerate every supported form; do not summarize several historical
+# versions as "legacy".
+compatibility:
+  required: false
+  rationale: ""
+  versions:                       # Use [] when compatibility is not required
+    - version: ""
+      read_behavior: ""           # accept/reject/migrate/normalize, with expected result
+      write_behavior: ""          # emitted version or preservation rule
+      fixture: ""                 # Path to a real, immutable fixture
+      fixture_fingerprint: ""     # Detect accidental rewriting of historical evidence
+      immutable_on_read: true
+  migration_steps:
+    - from: ""
+      to: ""
+      work_package_id: ""
+      rollback_or_recovery: ""
+
+# A package is one coherent behavior or prerequisite, not merely one file or
+# layer. Every target intent item, AC, affected consumer, and invariant must be
+# covered by at least one package. Shared-contract work designates one owner.
+work_packages:
+  - id: "WP-01"
+    sequence: 1                   # [REQUIRED] Implementation order; ties require no dependency
+    value_phase: 1               # Human value phase this enables; 0 for change-spec delta
+    status: "pending"             # "pending" | "in_progress" | "pass" | "fail" | "blocked"
+    title: ""
+    kind: "behavior"              # "behavior" | "architectural_prerequisite" | "migration" | "integration"
+    intent_ids: []                # FR IDs for spec; CAC IDs for change-spec
+    acceptance_criteria_ids: []
+    invariant_ids: []
+    contract_ids: []
+    owns_contracts: []            # Contract IDs for which this is the coordinating package
+    depends_on: []                # Work-package IDs, not value phases
+    scope:
+      in: []
+      out: []
+    affected_consumers: []        # "CONTRACT-01:<layer>:<location>" references
+    verification_ids: []
+    done_when: ""                 # Observable, integration-aware completion condition
+
+# Verification occurs at the real behavior boundary. A command may be added or
+# refined during implementation, but the obligation and expected result are
+# fixed before implementation starts.
+verification:
+  - id: "VERIFY-01"
+    level: "integration"           # "unit" | "integration" | "runtime" | "real_environment" | "review"
+    obligation: ""
+    command: ""
+    expected: ""
+    fixture_paths: []
+    covers_intent_ids: []
+    covers_acceptance_criteria_ids: []
+    covers_invariant_ids: []
+    covers_contract_ids: []
+    result: "pending"             # "pending" | "pass" | "fail"
+    evidence: ""                  # Output or report proving the result
+
+adversarial_matrix:
+  - case: "zero_one_many"
+    applicability: "required"     # "required" | "not_applicable"
+    reason: ""
+    verification_ids: []
+  - case: "first_middle_last"
+    applicability: "required"
+    reason: ""
+    verification_ids: []
+  - case: "missing_conflicting_metadata"
+    applicability: "required"
+    reason: ""
+    verification_ids: []
+  - case: "duplicate_missing_identity"
+    applicability: "required"
+    reason: ""
+    verification_ids: []
+  - case: "old_current_representations"
+    applicability: "required"
+    reason: ""
+    verification_ids: []
+  - case: "unchanged_browser_round_trip"
+    applicability: "required"
+    reason: ""
+    verification_ids: []
+
+readiness_review:
+  reviewer: ""                   # [REQUIRED] Independent model/agent, not a package implementer
+  reviewed_at: ""                # ISO 8601 timestamp
+  invariant_coverage: "pending"  # "pending" | "pass" | "fail"
+  consumer_coverage: "pending"
+  compatibility_coverage: "pending"
+  fr_ac_coverage: "pending"
+  work_package_coverage: "pending"
+  verification_coverage: "pending"
+  quality_gate_coverage: "pending"
+  adversarial_coverage: "pending"
+  unresolved_findings: []         # Must be empty before Stage 4
+
+# Track failures by defect class, not exact reproduction. On occurrence 1,
+# inspect all mapped consumers and add a regression at the violated boundary.
+# On occurrence 2, pause implementation and re-run readiness review after
+# revising the invariant, consumer map, or package boundaries.
+defect_classes: []
+# - class: "identity_loss"
+#   occurrence_count: 1
+#   affected_invariant_ids: ["INV-01"]
+#   affected_contract_ids: ["CONTRACT-01"]
+#   regression_verification_ids: ["VERIFY-01"]
+#   action: "consumer_wide_fix"   # "consumer_wide_fix" | "architecture_pause"
+
+handoff:
+  base_commit: ""
+  head_commit: ""
+  invariant_ids: []
+  changed_contract_ids: []
+  persisted_formats_affected: []
+  migration_versions_and_fixtures: []
+  consumers_inspected: []
+  prior_findings_and_regressions: []
+  commands_run: []
+  known_limitations: []
+  independent_reviewer: ""
+  reviewed_at: ""
+  review_result: "pending"       # "pending" | "pass" | "fail"

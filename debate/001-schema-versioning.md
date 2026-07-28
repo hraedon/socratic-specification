@@ -69,3 +69,10 @@ Not blocking any current work. Should be completed before a second downstream co
 2. Update `process.md` Step 7 synthesis to include the field
 3. Update `README.md` to mention versioning
 4. File a note in sf2's `debate/009-event-schema-evolution.md` that the upstream schema now has versioning
+
+## Resolution (2026-07-14)
+
+Accepted as part of the canonical-contract hardening release. The previously
+implicit format is treated as legacy v1; the corrected canonical spec is v2.
+Work-plan and change-spec contracts begin explicitly at v1. Validators reject
+unsupported versions before downstream consumption.

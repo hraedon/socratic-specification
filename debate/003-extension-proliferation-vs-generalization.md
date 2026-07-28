@@ -71,3 +71,10 @@ Not blocking any current work. Should be completed before the next extension is 
 2. Apply the framework retroactively to Mobile; document the justification
 3. Create a placeholder extension template (`extension.template.md`) that new extensions must follow
 4. Close this debate when the first new extension is accepted under the framework
+
+## Resolution (2026-07-14)
+
+Accepted. `extensions/index.yaml` now records the three-criteria threshold,
+composition rules, activation signals, lifecycle status, validation date, and
+promotion bar. `extensions/extension.template.md` is required for new entries.
+The change-to-existing-system extension is the first governed pilot.

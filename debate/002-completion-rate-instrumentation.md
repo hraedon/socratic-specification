@@ -64,3 +64,10 @@ Not blocking any current work. This is research infrastructure. However, it shou
 3. Implement a lightweight `SessionMetrics` dataclass that process runners can optionally instantiate
 4. Run 10 sessions with telemetry enabled
 5. Report completion rates and identify the largest drop-off point
+
+## Implementation status (2026-07-14)
+
+The privacy boundary, exact local metrics contract, and downstream defect classes
+are implemented in `TELEMETRY.md` and `schemas/session-metrics-v1.schema.json`.
+The debate remains active until enough comparable sessions are collected; a
+metrics schema is not evidence about completion or downstream quality.

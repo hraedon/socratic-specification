@@ -6,6 +6,10 @@ A process for converting an informal software description ("vibe spec") into a p
 
 A well-designed elicitation process can produce a production-grade spec from a vague human prompt. The process does the work; the human provides domain knowledge, intent, and decisions.
 
+**What the spec is:** a birth certificate, not a living contract. The spec's value is front-loaded — it aligns intent at project inception, gives the implementing agent a complete picture, and then steps aside. Consumer evidence (usage-dashboard, regista, openbia) shows that artifact fidelity is inversely correlated with project maturity: the newest consumer is the most spec-faithful. The canonical machinery exists to make birth rigorous, not to impose lifelong maintenance. Post-delivery drift is expected and addressed through lightweight re-specification (change-spec) when a system needs a new phase of intentional change — not through continuous synchronization.
+
+**What the spec is not:** a substitute for architecture. Elicitation is democratized; architecture is relocated upstream (into the work-plan gate, invariants, and component manifests), not eliminated. The honest claim is Claim 2: the process makes architectural competence explicit and auditable, rather than claiming to remove the need for it.
+
 ## What's Here
 
 - **[process.md](process.md)** — The full specification process: roles, spec levels, elicitation steps, the spec artifact template, and process extensions (starting with Mobile)
@@ -44,7 +48,7 @@ The human declares a desired level. The AI assesses what's actually achievable a
 - **Testing at the baseline** — every spec identifies testable behaviors and acceptance criteria from Level 1
 - **High-coupling decisions** — load-bearing architectural choices are classified explicitly rather than left implicit
 - **MVP definition** — human-declared value priority, separate from implementation sequencing
-- **One canonical contract** — YAML is authoritative; human-readable artifacts are generated and fingerprinted
+- **One canonical artifact at synthesis** — YAML is authoritative at birth; human-readable artifacts are generated and fingerprinted. Post-delivery, the spec is a record of intent, not a continuously enforced contract.
 - **Categorical provenance** — important claims say whether they were stated, confirmed, observed, inferred, assumed, or externally verified
 - **Evidence before promotion** — process additions graduate through evaluation cases and independent project evidence
 
@@ -68,6 +72,12 @@ Each completed spec produces one canonical file and two generated human views:
 | `decision-brief.md` | Generated concise confirmation surface for the human. |
 
 Generated files carry the canonical fingerprint. If they differ, validation fails and they must be regenerated; neither silently wins.
+
+## Spec Lifecycle
+
+Specs are front-loaded. Their primary value is at synthesis: aligning intent, giving the implementing agent a complete picture, and making architectural decisions explicit and auditable. After delivery, the spec is a record of what was intended and why — not a continuously synchronized contract.
+
+When a system needs a new phase of intentional change, the [change-to-existing-system extension](extensions/change-existing-system.md) produces a `change-spec.yaml` that pins the current baseline and specifies the delta. This is re-specification, not maintenance. Systems that have moved beyond their spec need not regenerate views or pass sync checks — the spec's job was already done.
 
 Factory-bound implementation then produces an additional downstream artifact:
 

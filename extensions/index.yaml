@@ -1,0 +1,85 @@
+registry_version: 1
+
+governance:
+  extension_threshold: 2
+  criteria:
+    - platform_specific_capabilities
+    - distinct_high_coupling_decisions
+    - visual_or_spatial_reasoning
+  rules:
+    - Extensions are additive and must not silently replace base requirements.
+    - Archetypes compose reusable guardrails plus a small domain-specific delta.
+    - Activation is detected by the agent and confirmed in domain language.
+    - Every non-stable entry names an empirical promotion bar.
+    - Human-facing question width must not increase for inactive entries.
+
+entries:
+  - id: mobile
+    kind: extension
+    status: stable
+    source: ../process.md
+    activation_signals: [app_store, touch_first, device_capabilities]
+    composes: []
+    schema_fragment: mobile
+    last_validated: "2026-05-09"
+    promotion_bar: null
+
+  - id: change_existing_system
+    kind: extension
+    status: pilot
+    source: change-existing-system.md
+    activation_signals: [existing_repository, existing_release, named_existing_feature, modify_or_remove_behavior]
+    composes: []
+    schema_fragment: ../schemas/change-spec-v1.schema.json
+    last_validated: "2026-07-14"
+    promotion_bar: One additive and one breaking historical change surface their known compatibility and regression risks before implementation.
+
+  - id: guardrail_data_hygiene
+    kind: guardrail
+    status: proposed
+    source: guardrails.md
+    activation_signals: [real_data, regulated_data, secrets]
+    composes: []
+    schema_fragment: null
+    last_validated: "2026-07-03"
+    promotion_bar: Recur in at least two independent projects and pass adversarial review.
+
+  - id: guardrail_mutation_posture
+    kind: guardrail
+    status: proposed
+    source: guardrails.md
+    activation_signals: [always]
+    composes: []
+    schema_fragment: null
+    last_validated: "2026-07-03"
+    promotion_bar: Recur in at least two independent projects and pass adversarial review.
+
+  - id: guardrail_environment_matrix
+    kind: guardrail
+    status: proposed
+    source: guardrails.md
+    activation_signals: [deployed_system, dev_target_difference]
+    composes: []
+    schema_fragment: null
+    last_validated: "2026-07-03"
+    promotion_bar: Recur in at least two independent projects and pass adversarial review.
+
+  - id: guardrail_operations
+    kind: guardrail
+    status: proposed
+    source: guardrails.md
+    activation_signals: [deployed_service, installer, long_running_process]
+    composes: []
+    schema_fragment: null
+    last_validated: "2026-07-03"
+    promotion_bar: Recur in at least two independent projects and pass adversarial review.
+
+  - id: local_first_read_only_analyzer
+    kind: archetype
+    status: proposed
+    source: archetype-local-first-read-only-analyzer.md
+    activation_signals: [analyze, audit, assess, report_findings, read_only]
+    composes: [guardrail_data_hygiene, guardrail_mutation_posture, guardrail_environment_matrix]
+    schema_fragment: null
+    last_validated: "2026-07-03"
+    promotion_bar: Validate against the cited project corpus and demonstrate a small delta over composed guardrails.

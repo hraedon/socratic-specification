@@ -16,7 +16,7 @@ support:
     - "cert-watch-3: test_fr09_manual_scan.py line 116 — fixture manually sets app.state.scheduler"
     - "cert-watch-3: src/cert_watch/web/routes/fr09_manual_scan.py:19 — _get_scheduler() returns None in production"
   synthetic_eval_cases:
-    - "evals/cases/test-production-wiring-parity.yaml (created this wave)"
+    - "evals/cases/web-service-wiring-parity.yaml (created this wave)"
 
 counterevidence:
   projects_or_cases:

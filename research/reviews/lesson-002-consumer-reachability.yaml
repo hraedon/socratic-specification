@@ -16,7 +16,7 @@ support:
     - "regista: commit 4170912 — BC-211/212/213 spec-drift findings from external review"
     - "regista: commit bb2768d — reconciliation of spec and code"
   synthetic_eval_cases:
-    - "evals/cases/test-production-wiring-parity.yaml (created this wave — same case as LESSON-001, different obligation)"
+    - "evals/cases/web-service-wiring-parity.yaml (created this wave — same case as LESSON-001, different obligation)"
 
 counterevidence:
   projects_or_cases:

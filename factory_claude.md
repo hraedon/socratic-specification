@@ -1,5 +1,13 @@
 # factory_claude.md
 
+> **Historical document.** This briefing was written for the software-factory
+> project (sf1) and later revised with aspirations for sf2. Neither factory
+> implemented the full mandate described here (schema-version rejection,
+> fingerprint checks, Stage-2 --ready gate, .factory/work-plan.yaml, worktree
+> agents, human checkpoints). Both factories are archived. This file is retained
+> as a record of intent and as input to future factory design — not as a
+> description of any running system.
+
 *Briefing for a new Claude instance starting the software factory project.*
 
 ---

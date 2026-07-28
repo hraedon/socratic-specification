@@ -1,0 +1,46 @@
+case_version: 1
+id: web-service-wiring-parity
+mode: greenfield
+purpose: Ensure the process surfaces a wiring-parity verification obligation for a multi-feature web service where unit tests can pass while features are unreachable from consumers.
+input:
+  vibe_spec: "I want a web dashboard that tracks library book loans. It should show all books with their checkout status. Librarians can check books in and out through the web interface. The system should send an email reminder when a book is 3 days overdue, and run a daily check for overdue books automatically. I also want to upload a CSV file to bulk-import book records."
+  available_context:
+    - "The dashboard runs as a Docker container with a SQLite database."
+    - "Email is sent via an internal SMTP relay on port 25."
+    - "The daily check should run without an external cron job."
+expected_obligations:
+  - id: OB-01
+    severity: critical
+    deadline: work_decomposition
+    obligation: "For every MVP FR with an HTTP endpoint, require a verification that exercises the route-to-service path without test-fixture injection."
+    rationale: "Unit tests that inject services via fixtures pass regardless of whether production code wires those services. The cert-watch-8 factory run produced 413 passing tests with 13/15 features unreachable because routes were never registered."
+  - id: OB-02
+    severity: critical
+    deadline: work_decomposition
+    obligation: "For every MVP FR that depends on infrastructure (scheduler, database, email), require a verification that the production wiring path sets up the dependency without fixture override."
+    rationale: "The cert-watch-3 factory run passed 188 tests but the manual-scan endpoint returned HTTP 503 in production because app.state.scheduler was set by test fixtures but never by the application factory."
+  - id: OB-03
+    severity: critical
+    deadline: work_decomposition
+    obligation: "For the daily-check FR, require a verification that a scheduled job is registered and invokes the overdue-check service."
+    rationale: "A scheduler that starts with zero registered jobs is a known failure mode. The scheduler service can be fully implemented and tested in isolation while the application never registers any jobs with it."
+  - id: OB-04
+    severity: important
+    deadline: pre_synthesis
+    obligation: "Identify the upload-CSV and email-reminder features as depending on external systems (file parsing, SMTP) and classify their testability."
+    rationale: "External dependencies are often marked untestable and then silently excluded from all verification. The process should distinguish delivery-is-untestable from wiring-is-untestable."
+  - id: OB-05
+    severity: important
+    deadline: work_decomposition
+    obligation: "Require a consumer-reachability check: for each MVP FR, assert that a declared consumer (route, CLI, scheduled job) can invoke the service through production wiring."
+    rationale: "Service-level tests (importability, method existence, unit tests) do not verify that services are reachable from consumers. This is distinct from testing the service in isolation."
+anti_obligations:
+  - id: ANTI-01
+    anti_obligation: "Require the human to specify the web framework, routing library, or dependency injection mechanism."
+    rationale: "These are implementation choices, not intent."
+  - id: ANTI-02
+    anti_obligation: "Require integration tests for deferred (non-MVP) features."
+    rationale: "Wiring-parity obligations apply to MVP scope only. Deferred features may have unwired services by design."
+  - id: ANTI-03
+    anti_obligation: "Require the human to define test environments, fixture strategies, or mock frameworks."
+    rationale: "These are decomposition-layer concerns, not human-domain questions."

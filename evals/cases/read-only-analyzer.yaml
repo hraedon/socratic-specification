@@ -1,0 +1,34 @@
+case_version: 1
+id: read-only-analyzer
+mode: greenfield
+purpose: Exercise guardrail composition for a privileged collector and offline analyzer.
+input:
+  vibe_spec: Build a tool that collects configuration from a managed environment and reports risky settings. It must never change the environment.
+  available_context:
+    - Collection runs on Windows with an older shell runtime.
+    - Analysis is developed on Linux.
+expected_obligations:
+  - id: OB-01
+    severity: critical
+    deadline: elicitation
+    obligation: Confirm read-only and flag-don't-probe mutation posture.
+    rationale: Violating this changes the tool's blast radius fundamentally.
+  - id: OB-02
+    severity: critical
+    deadline: pre_synthesis
+    obligation: Record the development-to-target environment difference.
+    rationale: The real collector runtime is a known bug boundary.
+  - id: OB-03
+    severity: critical
+    deadline: pre_handoff
+    obligation: Validate at least one genuinely positive condition on the target runtime or name the missing evidence.
+    rationale: Clean targets and fixtures hide decode and attribute-name failures.
+  - id: OB-04
+    severity: important
+    deadline: pre_synthesis
+    obligation: Classify data that may enter fixtures and agent context.
+    rationale: Collected environment data may be unsuitable for committed artifacts.
+anti_obligations:
+  - id: ANTI-01
+    anti_obligation: Ask the human to choose the collector serialization library.
+    rationale: That is an implementation mechanism, not intent.

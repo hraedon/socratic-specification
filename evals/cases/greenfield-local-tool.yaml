@@ -1,0 +1,27 @@
+case_version: 1
+id: greenfield-local-tool
+mode: greenfield
+purpose: Ensure a small project remains small while still closing the persistence and failure loops.
+input:
+  vibe_spec: I want a little desktop tool that remembers which plants I watered and shows what needs water today. It is just for me.
+  available_context: []
+expected_obligations:
+  - id: OB-01
+    severity: critical
+    deadline: elicitation
+    obligation: Define what makes a plant due, including the date boundary.
+    rationale: The core result is otherwise not testable.
+  - id: OB-02
+    severity: critical
+    deadline: pre_synthesis
+    obligation: State whether records survive restart and what owns them.
+    rationale: Remembering is part of the requested value.
+  - id: OB-03
+    severity: important
+    deadline: work_decomposition
+    obligation: Verify zero, one, and multiple due plants.
+    rationale: Collection cardinality is a common boundary failure.
+anti_obligations:
+  - id: ANTI-01
+    anti_obligation: Require accounts, cloud synchronization, or a multi-user authorization model.
+    rationale: The supplied intent is explicitly personal and local.

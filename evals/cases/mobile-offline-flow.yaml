@@ -1,0 +1,27 @@
+case_version: 1
+id: mobile-offline-flow
+mode: greenfield
+purpose: Verify Mobile activation, offline semantics, permissions, and readable flow confirmation.
+input:
+  vibe_spec: I want a phone app for volunteers to photograph damaged trail signs and submit reports when they get back into coverage.
+  available_context: []
+expected_obligations:
+  - id: OB-01
+    severity: critical
+    deadline: elicitation
+    obligation: Activate Mobile and ask about camera permission behavior.
+    rationale: Photography depends on a device capability and denial path.
+  - id: OB-02
+    severity: critical
+    deadline: pre_synthesis
+    obligation: Define offline queue, retry, duplicate, and conflict behavior.
+    rationale: Delayed submission is the core architectural constraint.
+  - id: OB-03
+    severity: important
+    deadline: pre_synthesis
+    obligation: Present a readable screen flow, split if it exceeds the complexity cap.
+    rationale: Capture, review, queue, retry, and completion form a spatial lifecycle.
+anti_obligations:
+  - id: ANTI-01
+    anti_obligation: Select native or cross-platform without first asking about platform, maintenance, and delivery constraints.
+    rationale: The choice is a business tradeoff presented through technical options.

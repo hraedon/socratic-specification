@@ -1,0 +1,34 @@
+case_version: 1
+id: brownfield-persisted-change
+mode: change_existing_system
+purpose: Detect compatibility and consumer obligations before changing a persisted representation.
+input:
+  vibe_spec: Add stable IDs to the saved policy entries so the browser can edit the right one after reordering.
+  available_context:
+    - The repository contains older saved snapshots without IDs.
+    - Parsing, persistence, browser editing, diff output, and export consume policy entries.
+expected_obligations:
+  - id: OB-01
+    severity: critical
+    deadline: pre_synthesis
+    obligation: Pin the baseline repository commit and identify current saved representations.
+    rationale: Compatibility claims require an immutable baseline.
+  - id: OB-02
+    severity: critical
+    deadline: work_decomposition
+    obligation: Map parser, model, persistence, browser, diff, export, validation, and documentation consumers.
+    rationale: Stable identity is a shared contract, not a browser-only field.
+  - id: OB-03
+    severity: critical
+    deadline: work_decomposition
+    obligation: Define read/write behavior and a real fixture for every supported historical representation.
+    rationale: Old snapshots must remain readable without being silently rewritten.
+  - id: OB-04
+    severity: critical
+    deadline: pre_handoff
+    obligation: Exercise unchanged load-edit-save-reparse and browser round trips.
+    rationale: Syntax and isolated model tests cannot prove the preservation invariant.
+anti_obligations:
+  - id: ANTI-01
+    anti_obligation: Treat generating IDs on every read as sufficient without specifying persistence and stability.
+    rationale: Regenerated identity breaks edits, comparisons, and exports.

@@ -1,0 +1,259 @@
+review_version: 1
+project_key: "cert-watch"
+reviewer: "Reviewer B"
+reviewed_at: "2026-07-14"
+
+lineage:
+  mode: "factory_fixture"
+  source_spec_pointer: "cert-watch-3: /projects/software-factory/projects/cert-watch-3/spec.md (authoritative) + spec.yaml (Level 2, 405 lines); cert-watch-8: /projects/software-factory/projects/cert-watch-8/spec.md + spec.yaml (Level 3, 734 lines)"
+  source_spec_fingerprint: "cert-watch-3 spec.yaml sha256:80c6485665ede5cee6c4f2292e541294ffc6e4c925d14c27f5b7b888f12cdac5; cert-watch-8 spec.yaml sha256:0f9e4b08aabe622d6f4a2b0c9e5338e23c0138174c173984a5dbba9dd3017643"
+  implementation_baseline: "cert-watch-3 first code commit 549ea39 (FR-04 models/repos); cert-watch-8 first code commit 60e9e90 (prereq persistent data model)"
+  first_useful_delivery: "cert-watch-3: commit 4c5b44b Merge WU-docs (factory complete, 188 tests passing, docs generated); cert-watch-8: commit 3a2fbef Merge WU-docs (factory complete, 429 tests passing/16 skipped, docs generated)"
+  outcome: "cert-watch-3: accepted; cert-watch-8: accepted_per_factory_state, with noted handoff/lineage contradictions"
+
+starting_contract:
+  value_phase_summary: |
+    Phase 1 (MVP): web dashboard showing monitored certificates with status, automatic TLS scanning, manual certificate upload, labels/tags, email alerts, daily scan cycle.
+    Phase 2: HTTPS dashboard and Teams webhook notifications.
+    Phase 3: per-tag alert routing, authentication/role-based access control, MSSQL backend option, Azure Key Vault integration.
+    cert-watch-3 was synthesized at Level 2; cert-watch-8 is a Level 3 re-synthesis of the same lineage with more detailed FRs, ACs, data model, and NFRs.
+  active_extensions: []
+  assumptions:
+    - "Internal network is trusted; unauthenticated dashboard access acceptable"
+    - "Unauthenticated SMTP relay on port 25 available (or configurable)"
+    - "Uploaded certificates are legitimate; trust-chain validation not required"
+    - "Docker container has network access to all monitored hosts on TLS ports"
+    - "Scale remains under 50 entries (cw3) / up to 100 entries (cw8); no/paginated dashboard pagination"
+    - "PFX files may or may not have a password; upload form provides optional field"
+    - "Scheduler uses container system timezone"
+  known_risks:
+    - "No authentication in MVP; network-level access control is operator responsibility"
+    - "Per-tag alert routing deferred"
+    - "Azure Key Vault / Windows CA API / HIPAA compliance scope undefined"
+    - "External email/Teams delivery is an external dependency (untestable)"
+    - "Certificate matching/replacement semantics differ between runs (cw3 subject+hostname; cw8 fingerprint)"
+    - "Factory-generated handoff/lineage may not reflect actual code state"
+
+timeline_events:
+  - event: "cert-watch-3 Level 2 spec committed"
+    immutable_pointer: "commit 8d6a146"
+    significance: "Starting contract: 10 MVP FRs, SQLite with repository abstraction, tiered leaf/chain alerting."
+  - event: "cert-watch-3 initial models, repositories, and service infrastructure"
+    immutable_pointer: "commit 549ea39"
+    significance: "First implementation artifact for the lineage."
+  - event: "cert-watch-3 Phase 1/2/3 factory agents run sequentially with merge-and-review gates"
+    immutable_pointer: ".factory/factory.log"
+    significance: "3 phases, 13 agents; FR correctness review and adversarial security review passed each phase."
+  - event: "cert-watch-3 post-build test gate blocked by 7 failures"
+    immutable_pointer: ".factory/factory.log lines 278-290; .factory/test-results.json"
+    significance: "Failures in test_fr06_fr07_alerting (days_until_expiry boundary) and test_repositories (alert ordering). Fix agent resolved them and gate passed."
+  - event: "cert-watch-3 factory run completed with 188 passing tests"
+    immutable_pointer: "commit 4c5b44b; .factory/handoff.md; .factory/test-results.json"
+    significance: "Accepted delivery; handoff template is sparse (phases only)."
+  - event: "cert-watch-8 Level 3 spec committed (evolved from cw3)"
+    immutable_pointer: "commit b0baf48 / spec.yaml"
+    significance: "More detailed FRs/ACs, added FR-11 scan-failure alerts, pagination, search, fingerprint-based duplicate detection."
+  - event: "cert-watch-8 skeleton and architectural prerequisites implemented"
+    immutable_pointer: "commits c26a775, 60e9e90, bae418e"
+    significance: "Persistent data model, TLS scanner, multi-format parser."
+  - event: "cert-watch-8 FR agents implement dashboard, scan, upload, labels/tags, alerts, scheduler, scan-failure tracking"
+    immutable_pointer: "git log fr-01..fr-11; final merge 3a2fbef"
+    significance: "Factory reports all phases complete and tests passing."
+  - event: "cert-watch-8 handoff reports 'phantom coverage' and zero implementation work units"
+    immutable_pointer: ".factory/handoff.md; .factory/lineage.json"
+    significance: "Handoff claims services are defined but never instantiated/called; contradicts actual source in src/cert_watch_8."
+  - event: "cert-watch-8 test-results show 429 tests, 413 passed, 16 skipped, 0 failed"
+    immutable_pointer: ".factory/test-results.json"
+    significance: "Evidence of a wired implementation despite lineage.json listing empty implementations/verification arrays."
+
+findings:
+  - id: "FINDING-01"
+    summary: "Factory spec lint flagged multiple FRs and ACs as lacking observable actions or outputs."
+    primary_class: "translation_gap"
+    contributing_classes: ["spec_inconsistency"]
+    evidence_pointers:
+      - ".factory/factory.log lines 2-13: testability/vagueness warnings for FR-04, FR-05, FR-09, FR-10, FR-12, FR-13, FR-14, FR-15, FR-16 and AC-07/AC-08"
+      - "/projects/software-factory/projects/cert-watch-3/spec.yaml lines 60-108: those FRs use verbs like 'can have', 'is running', 'sends' without explicit system outputs"
+    earliest_reasonable_detection_stage: "spec synthesis (Level 2)"
+    hindsight_information: "Acceptance criteria require observable 'then' clauses; the warnings identify exactly which requirements were under-specified."
+    impact: "Implementing agents had to interpret intent; some features (e.g., Teams webhook) were left optional."
+    resolution: "Factory lint generated warnings but did not block; cert-watch-8 Level 3 spec improved testability of ACs."
+
+  - id: "FINDING-02"
+    summary: "cert-watch-3 MVP FR count mismatch between spec.md and spec.yaml drifted before build."
+    primary_class: "spec_inconsistency"
+    contributing_classes: []
+    evidence_pointers:
+      - ".factory/factory.log lines 16-18: 'spec.md / spec.yaml drift detected (E005): MVP FR count mismatch: spec.md has 9 [MVP] marker(s), spec.yaml mvp.fr_ids has 10 entry/entries'"
+      - "/projects/software-factory/projects/cert-watch-3/spec.yaml line 46: mvp.fr_ids lists 10 FRs"
+    earliest_reasonable_detection_stage: "spec validation gate (Stage 2)"
+    hindsight_information: "spec.md is source of truth; spec.yaml sidecar was regenerated against an earlier version."
+    impact: "Minor drift warning; did not block the run because the sidecar is not authoritative."
+    resolution: "Factory E005 playbook documents regenerating spec.yaml from spec.md."
+
+  - id: "FINDING-03"
+    summary: "cert-watch-3 alert threshold tests failed due to an off-by-one boundary in days_until_expiry."
+    primary_class: "implementation_error"
+    contributing_classes: []
+    evidence_pointers:
+      - ".factory/test-results.json: test_fr06_fr07_alerting.py assertion 'assert 6 == 7' in test_leaf_warning_7_to_14_days"
+      - "commit 2e8e51d: 'fix days_until_expiry rounding and alert ordering assertions'"
+      - ".factory/factory.log lines 278-290: test gate blocked, fix agent run, gate passed"
+    earliest_reasonable_detection_stage: "implementation verification / unit tests"
+    hindsight_information: "Boundary between 7 and 14 days depends on time-of-day truncation; the test assumed whole-day equality."
+    impact: "Post-build gate blocked release; fix agent resolved before handoff."
+    resolution: "Adjusted days_until_expiry rounding and test assertions."
+
+  - id: "FINDING-04"
+    summary: "cert-watch-3 repository test failed because alert records were returned newest-first instead of oldest-first."
+    primary_class: "implementation_error"
+    contributing_classes: []
+    evidence_pointers:
+      - ".factory/test-results.json: test_repositories.py failure"
+      - "commit 852b3c8: 'fr-07: fix alert records ordering to return oldest first'"
+      - "commit 2e8e51d: 'fix alert ordering assertions'"
+    earliest_reasonable_detection_stage: "implementation verification / repository tests"
+    hindsight_information: "Chronological ordering is required for deterministic threshold-firing checks."
+    impact: "Test gate blocked; ordering fix plus assertion adjustment resolved it."
+    resolution: "SqliteAlertRepository returns alert records oldest first."
+
+  - id: "FINDING-05"
+    summary: "cert-watch-3 FR-09 manual scan endpoint exists but the dashboard template lacks a visible 'Scan Now' button."
+    primary_class: "decomposition_gap"
+    contributing_classes: []
+    evidence_pointers:
+      - ".factory/factory.log fr-09 review line: 'the dashboard template lacks a visible Scan Now button; the API endpoint is fully functional'"
+      - "/projects/software-factory/projects/cert-watch-3/src/cert_watch/web/routes/fr09_manual_scan.py: POST /api/scan"
+      - "/projects/software-factory/projects/cert-watch-3/src/cert_watch/web/routes/fr01_dashboard.py"
+    earliest_reasonable_detection_stage: "work decomposition (UI route + template as a consumer of the scan API)"
+    hindsight_information: "FR-09 requirement is 'User can trigger a manual scan from the dashboard' — needs both endpoint and UI affordance."
+    impact: "Feature is API-complete but not user-discoverable without adding a button or link."
+    resolution: "Factory review accepted the implementation as functional; UI button deferred."
+
+  - id: "FINDING-06"
+    summary: "cert-watch-8 factory handoff and lineage.json report zero implementation work units and 'phantom coverage' for repository methods that are actually called in production code."
+    primary_class: "environment_gap"
+    contributing_classes: ["implementation_error"]
+    evidence_pointers:
+      - ".factory/handoff.md: 'Zero work units executed', '8 phantom coverage issues in src/cert_watch_8/repositories/base.py'"
+      - ".factory/lineage.json: every FR has implementations: [] and verification: []"
+      - "/projects/software-factory/projects/cert-watch-8/src/cert_watch_8/web/routes/fr02_scan.py lines 84-157: calls repo.record_scan, list_all_entries, save_entry, get_entry_by_fingerprint, update_entry_hosts"
+      - "grep result for get_entry_by_fingerprint/list_all_entries/save_entry/etc. shows callers in src/cert_watch_8/web/routes/"
+    earliest_reasonable_detection_stage: "factory integration review / lineage generation"
+    hindsight_information: "The integration-review tool either scanned an incomplete worktree, ignored web/routes/, or produced a stale handoff."
+    impact: "Handoff is unreliable as the sole source of truth; it would mislead a maintainer into re-implementing already-wired features."
+    resolution: "Use git worktree and test-results as primary evidence; treat handoff as advisory."
+
+  - id: "FINDING-07"
+    summary: "cert-watch-8 test-results.json reports 413 passed/16 skipped/0 failed, while lineage.json reports no implementations or verification for any FR."
+    primary_class: "spec_inconsistency"
+    contributing_classes: ["environment_gap"]
+    evidence_pointers:
+      - ".factory/test-results.json: 429 collected, 413 passed, 0 failed"
+      - ".factory/lineage.json: all FR implementations and verification arrays empty"
+      - ".factory/handoff.md: 'Lineage shows NO implementations for any FR'"
+    earliest_reasonable_detection_stage: "factory post-build reconciliation"
+    hindsight_information: "A passing test suite with integration and wiring tests is strong evidence that FRs are implemented, regardless of lineage bookkeeping."
+    impact: "Factory state artifacts contradict each other; traceability cannot be taken at face value."
+    resolution: "Reconcile lineage generator against actual source and test artifacts."
+
+  - id: "FINDING-08"
+    summary: "The duplicate-certificate business rule changed between the two runs of the same lineage."
+    primary_class: "translation_gap"
+    contributing_classes: ["elicitation_gap"]
+    evidence_pointers:
+      - "cert-watch-3 spec.yaml BR-06: 'Certificate matching for upload replacement uses subject (CN) + hostname'"
+      - "cert-watch-8 spec.yaml BR-01: 'No certificate may be monitored without a unique fingerprint. Duplicate certificates from different hosts share an entry with multiple host associations.'"
+      - "cert-watch-8 src/cert_watch_8/web/routes/fr02_scan.py lines 130-135: update_entry_hosts by fingerprint"
+    earliest_reasonable_detection_stage: "spec re-synthesis for cert-watch-8"
+    hindsight_information: "Fingerprint-based deduplication is more robust but changes the data model and replacement semantics versus cw3."
+    impact: "Same lineage produced two incompatible persistence contracts; a consumer moving from cw3 to cw8 would need data migration."
+    resolution: "cert-watch-8 adopted fingerprint-based model; cw3 remains subject+hostname."
+
+  - id: "FINDING-09"
+    summary: "cert-watch-8 SmtpAlertService daily/negative-day milestone keying may create overlapping or non-deterministic alert records."
+    primary_class: "implementation_error"
+    contributing_classes: ["translation_gap"]
+    evidence_pointers:
+      - "/projects/software-factory/projects/cert-watch-8/src/cert_watch_8/services/alert.py lines 79-95: milestone_today = -days if days <= 0 else days"
+      - "spec.yaml BR-03: 'Each alert milestone fires at most once per certificate entry'"
+    earliest_reasonable_detection_stage: "implementation verification / alert-service unit tests"
+    hindsight_information: "Using dynamic negative values as milestone keys makes 'fired at most once' harder to reason about than fixed thresholds."
+    impact: "Potential duplicate or missed daily alerts if the milestone key collides or is computed differently on re-scan."
+    resolution: "No observed test failures; flagged for further review."
+
+  - id: "FINDING-10"
+    summary: "cert-watch-8 FR-05 (PFX password retry) is exposed as an API that prompts for password, but the web UI has no modal password flow."
+    primary_class: "decomposition_gap"
+    contributing_classes: []
+    evidence_pointers:
+      - "cert-watch-8 spec.yaml FR-05: 'Given a user uploads a .pfx file, when parsing without password fails, the system prompts for the password and retries'"
+      - "src/cert_watch_8/web/routes/fr02_scan.py only handles host scanning; no upload route visible in web/routes/ listing"
+      - "src/cert_watch_8/services/parser.py (CertificateParserService) exists"
+    earliest_reasonable_detection_stage: "work decomposition (upload route + UI form)"
+    hindsight_information: "A stateless HTTP API cannot 'prompt' in the same sense as a synchronous form; requires two-step upload endpoint or UI handling."
+    impact: "FR-05 likely implemented in parser service but the user-facing prompt path is unclear from available routes."
+    resolution: "Upload route may exist outside inspected tree; evidence incomplete."
+
+effective_controls:
+  - control: "Factory test execution gate blocked cert-watch-3 release until 7 failures were fixed."
+    evidence_pointers:
+      - ".factory/factory.log lines 278-290"
+      - ".factory/test-results.json post-fix: 188 tests passed"
+    observed_effect: "Defects in alert boundary and repository ordering were caught and resolved before handoff."
+
+  - control: "Factory spec lint raised testability and drift warnings before decomposition."
+    evidence_pointers:
+      - ".factory/factory.log lines 2-18"
+    observed_effect: "Identified vague FRs/ACs that would otherwise have produced implementation ambiguity."
+
+  - control: "cert-watch-8 includes dedicated integration wiring tests (test_wiring.py)."
+    evidence_pointers:
+      - ".factory/test-results.json: tests/integration/test_wiring.py 28 tests passed"
+    observed_effect: "Wiring tests provide evidence that contradicts the handoff's 'phantom coverage' claim."
+
+  - control: "Adversarial security review passed for cert-watch-8 with zero findings."
+    evidence_pointers:
+      - ".factory/security-findings.json"
+    observed_effect: "No blocking security issues reported across fr-02, fr-05, fr-06, fr-07, fr-11 worktrees."
+
+  - control: "Spec level was upgraded from 2 to 3 between runs, adding explicit ACs, data model, and NFRs."
+    evidence_pointers:
+      - "cert-watch-3 spec.yaml meta.spec_level: 2"
+      - "cert-watch-8 spec.yaml meta.spec_level: 3"
+      - "cert-watch-8 spec.yaml has 18 ACs versus 14 in cert-watch-3"
+    observed_effect: "More detailed acceptance criteria and dependency hints reduced ambiguity for the second run."
+
+implementation_questions:
+  - question: "How should days_until_expiry be rounded so that 7-day and 14-day thresholds fire exactly once?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "spec synthesis / AC drafting"
+  - question: "How are duplicate uploads matched: by subject+hostname or by certificate fingerprint?"
+    answer_source: "spec"
+    should_have_been_resolved_at: "spec synthesis"
+  - question: "How does the daily background scheduler wire the scanner, repository, and alert service together without creating circular dependencies?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "work decomposition"
+  - question: "How is the PFX password prompt exposed over a stateless HTTP API?"
+    answer_source: "spec"
+    should_have_been_resolved_at: "spec synthesis"
+  - question: "Why does the cert-watch-8 handoff/lineage report zero implementations when source and tests show wired features?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "factory integration review"
+  - question: "What is the canonical test environment for external SMTP and Teams webhook delivery?"
+    answer_source: "spec"
+    should_have_been_resolved_at: "spec synthesis / untestable_items"
+
+candidate_lessons:
+  - "Factory test gates with automatic fix agents catch boundary and ordering defects before handoff, but the fix agent's patches should be reviewed for semantic correctness."
+  - "Spec lint for testability and spec-md/spec.yaml drift should run at synthesis, not only at factory kickoff."
+  - "Integration/wiring tests are essential in factory fixtures because unit tests alone can pass while production wiring is incomplete (or falsely claimed incomplete)."
+  - "Re-running the same specification lineage with different levels/settings produces non-trivial variance; lineage reviews must compare source, not just factory state files."
+  - "Alert boundary tests must use fixed reference times rather than dynamic 'now()' to avoid off-by-one day failures."
+
+counterevidence:
+  - "cert-watch-3 completed with 188 tests and no retained security findings, showing the factory gate can be sufficient without the extensive adversarial-review overhead used by regista."
+  - "The cert-watch-3 fix agent resolved failures quickly; this may indicate the failures were test-assertion issues rather than implementation bugs, so the gate's value is mixed."
+  - "cert-watch-8's passing test suite coexists with a handoff claiming no implementation, demonstrating that factory artifacts can be internally inconsistent; relying on any single artifact is risky."
+  - "Fingerprint-based deduplication (cw8) is more robust than subject+hostname (cw3), but it contradicts the original lineage's replacement semantics — 'better' is not always 'compatible.'"
+  - "Both runs deferred authentication and per-tag routing; the process did not force closure of these risks, yet the factory still declared completion."

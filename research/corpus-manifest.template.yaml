@@ -1,0 +1,21 @@
+manifest_version: 1
+generated_at: ""
+scope_root: /projects
+
+projects:
+  - project_key: ""               # Opaque/local key; avoid sensitive project names if exported
+    repository_path: ""
+    eligibility: "candidate"      # "candidate" | "eligible" | "excluded" | "unknown"
+    exclusion_reason: ""
+    lineage_type: "greenfield"    # "greenfield" | "change_existing_system" | "factory_fixture" | "unknown"
+    archetype: ""
+    origin_evidence:
+      strength: "unknown"         # "direct_artifact" | "history_inference" | "human_confirmed" | "unknown"
+      pointers: []                 # Paths, commit IDs, run IDs; no copied sensitive content
+    spec_artifacts: []
+    factory_evidence: []
+    implementation_baseline: ""
+    first_useful_delivery: ""
+    outcome: "unknown"            # "accepted" | "partial" | "abandoned" | "superseded" | "active" | "unknown"
+    privacy_classification: "review_required"
+    deep_review_selected: false

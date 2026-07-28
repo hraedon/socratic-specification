@@ -1,0 +1,43 @@
+lesson_version: 1
+id: "LESSON-001"
+statement: "Work decomposition must include a verification obligation that the test environment exercises the same wiring path as production, not just the same service-level behavior. Tests that pass via fixture-injected dependencies or in-memory backends produce false confidence when production wiring differs."
+
+failure_or_success_class: "failure"
+
+support:
+  independent_lineages:
+    - "regista — InMemorySubstrate diverged from Postgres backend; 10+ bugs across 6+ sweeps (RG-02)"
+    - "cert-watch-3 — scheduler injected by test fixtures but never set in app_factory production code; manual scan returned HTTP 503 (CW-01)"
+  evidence_pointers:
+    - "regista: commit 76cf93c — fix 10 InMemorySubstrate bugs"
+    - "regista: commit 2ab9116 — RFC-062 single-source-of-truth backend contract (belated formalization)"
+    - "regista: tests/test_in_memory_conformance.py — conformance suite added after divergence pattern recognized"
+    - "cert-watch-3: .review-feedback — 'app.state.scheduler is never set anywhere in production code'"
+    - "cert-watch-3: test_fr09_manual_scan.py line 116 — fixture manually sets app.state.scheduler"
+    - "cert-watch-3: src/cert_watch/web/routes/fr09_manual_scan.py:19 — _get_scheduler() returns None in production"
+  synthetic_eval_cases:
+    - "evals/cases/test-production-wiring-parity.yaml (created this wave)"
+
+counterevidence:
+  projects_or_cases:
+    - "cert-watch-8 had wiring tests (test_wiring.py) designed to catch this exact pattern, but the tests checked structural properties (importability, method existence) rather than behavioral wiring (route calls service). The control's intent was correct but its implementation was insufficient."
+    - "regista's two-reviewer correctness pass (spec v2) did not prevent InMemory divergence; the conformance suite was added reactively after bugs were found."
+  strongest_alternative_explanation: "The root cause may be that work decomposition separates 'implement service' from 'wire service into application' without a verification obligation connecting them. The fix is not just 'add a test' but 'decompose so that wiring is part of the work package, not a separate concern that can be dropped.'"
+
+routing:
+  earliest_correct_boundary: "decomposition"
+  proposed_home: "process.md Step 5 composition checks — add a 'wiring parity' check: for every FR that depends on infrastructure (scheduler, database, external service), the work decomposition must include a test that exercises the production wiring path, not just the fixture-overridden path."
+  why_not_earlier: "Elicitation cannot resolve this — the human does not know about fixture injection or in-memory backends. This is a repository-discoverable fact."
+  why_not_later: "Implementation cannot catch this — the implementing agent's tests pass because they use fixtures. The gap is invisible at the implementation layer. Only the decomposition layer can mandate 'test the production wiring path.'"
+
+cost:
+  additional_human_questions: 0
+  additional_agent_work: "One additional test per FR that depends on infrastructure: construct the application without test fixtures and verify the FR's endpoint or entry point works. For factory fixtures, this means the test architect must include a 'production wiring' test category."
+  false_positive_risk: "Low for web services (routes are clearly either present or absent). Moderate for libraries where 'production wiring' is less defined — may produce false positives for FRs that are intentionally not wired in the current phase."
+
+pilot:
+  change_to_test: "Add a composition check to Step 5: 'For every MVP FR that depends on infrastructure (database, scheduler, external service, message queue), the work decomposition must include a test that exercises the production wiring path without test-fixture injection.' Evaluate against the cert-watch and regista corpus."
+  promotion_bar: "The pilot passes if: (1) at least one new wiring-parity defect is caught before handoff in a factory run, (2) no false positive blocks a legitimate implementation, and (3) the additional test does not exceed 15% of total test count."
+  rejection_bar: "The pilot fails if: (1) false positives block more than 10% of legitimate FRs, or (2) the check produces zero new findings across 3 factory runs, or (3) the check cannot distinguish 'intentionally deferred wiring' from 'missing wiring.'"
+
+status: "candidate"

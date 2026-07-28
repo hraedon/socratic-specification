@@ -1,0 +1,43 @@
+lesson_version: 1
+id: "LESSON-002"
+statement: "Tests that verify service-level behavior in isolation (importability, method existence, unit tests) do not verify that services are reachable from their consumers. A test suite can achieve high pass rates while the majority of features are non-operational. Verification obligations must include consumer-reachability tests: for each FR, assert that a consumer (HTTP route, CLI command, scheduled job) can invoke the service through the production wiring path."
+
+failure_or_success_class: "failure"
+
+support:
+  independent_lineages:
+    - "cert-watch-8 — 413 tests passed, 0 failed, but 13/15 FRs had no HTTP routes. Services existed as classes but were unreachable from the dashboard (CW-06, CW-07)"
+    - "regista — spec drift: implementation diverged from spec without detection because no test pinned spec statements to code behavior (RG-01)"
+  evidence_pointers:
+    - "cert-watch-8: .factory/test-results.json — 413 passed, 16 skipped, 0 failed"
+    - "cert-watch-8: src/cert_watch_8/web/routes/ — only fr01_dashboard.py and fr02_scan.py exist"
+    - "cert-watch-8: tests/integration/test_wiring.py — checks importability and method existence, not route-to-service wiring"
+    - "cert-watch-8: .factory/handoff.md — '8 phantom coverage issues: methods tested but NEVER invoked in production code'"
+    - "regista: commit 4170912 — BC-211/212/213 spec-drift findings from external review"
+    - "regista: commit bb2768d — reconciliation of spec and code"
+  synthetic_eval_cases:
+    - "evals/cases/test-production-wiring-parity.yaml (created this wave — same case as LESSON-001, different obligation)"
+
+counterevidence:
+  projects_or_cases:
+    - "cert-watch-3 (Level 2 spec) produced 6 routes for 10 FRs — more complete wiring than cert-watch-8 (Level 3, 2 routes for 15 FRs). Higher spec level did not predict better wiring completeness."
+    - "cert-watch-8's test_wiring.py was explicitly designed to catch orphan services (docstring: 'catches orphan services that pass their own tests but are never invoked in production') but checked structural properties instead of behavioral wiring. The control's intent was correct but its implementation was insufficient."
+  strongest_alternative_explanation: "The root cause may be that the factory's work decomposition separates 'implement service' from 'wire route' as different work packages, and the wiring package can be silently dropped. The fix is not better tests but better decomposition: wire the route as part of the FR work package, not as a separate task."
+
+routing:
+  earliest_correct_boundary: "decomposition"
+  proposed_home: "process.md Implementation Readiness Gate — add to the verification obligations: 'For every FR with a consumer (HTTP route, CLI command, scheduled job), the work package must include a test that exercises the full consumer path: consumer invokes service, service invokes repository/infrastructure, result reaches the consumer.' This is distinct from unit tests of the service in isolation."
+  why_not_earlier: "Elicitation cannot resolve this — the human does not know about routes, dependency injection, or service wiring."
+  why_not_later: "Implementation cannot catch this — the implementing agent's unit tests pass. Only the decomposition layer can mandate consumer-reachability tests as a verification obligation."
+
+cost:
+  additional_human_questions: 0
+  additional_agent_work: "One consumer-reachability test per FR with a consumer. For web services: an HTTP test that hits the route and verifies the service was invoked. For scheduled jobs: a test that verifies the job is registered and invokes the service. For CLI: a subprocess test."
+  false_positive_risk: "Low for web services (routes are present or absent). Moderate for libraries where 'consumer' may be a downstream caller not in the same repo. For deferred FRs (Phase 2+), the check must be scoped to MVP only to avoid false positives on intentionally unwired features."
+
+pilot:
+  change_to_test: "Add a consumer-reachability verification obligation to the Implementation Readiness Gate. For each MVP FR with a declared consumer, require a test that exercises the consumer path end-to-end. Evaluate against the cert-watch corpus: the check should have caught the 13/15 unwired FRs in cert-watch-8."
+  promotion_bar: "The pilot passes if: (1) the check catches at least one unwired FR that would otherwise have passed, (2) no false positive blocks a legitimately wired FR, (3) the check correctly scopes to MVP-only FRs and does not flag deferred features."
+  rejection_bar: "The pilot fails if: (1) false positives block more than 5% of legitimately wired FRs, or (2) the check cannot distinguish 'deferred to Phase 2' from 'missing wiring', or (3) the check requires more than 5 minutes of human attention per FR to classify."
+
+status: "candidate"

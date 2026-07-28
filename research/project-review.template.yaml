@@ -1,0 +1,49 @@
+review_version: 1
+project_key: ""
+reviewer: ""
+reviewed_at: ""
+
+lineage:
+  mode: ""                        # greenfield | change_existing_system | factory_fixture
+  source_spec_pointer: ""
+  source_spec_fingerprint: ""
+  implementation_baseline: ""
+  first_useful_delivery: ""
+  outcome: ""
+
+starting_contract:
+  value_phase_summary: ""
+  active_extensions: []
+  assumptions: []
+  known_risks: []
+
+timeline_events:
+  - event: ""
+    immutable_pointer: ""         # Commit, run ID, artifact path
+    significance: ""
+
+findings:
+  - id: "FINDING-01"
+    summary: ""
+    primary_class: ""             # elicitation_gap | translation_gap | spec_inconsistency |
+                                   # decomposition_gap | implementation_error |
+                                   # environment_gap | compatibility_gap
+    contributing_classes: []
+    evidence_pointers: []
+    earliest_reasonable_detection_stage: ""
+    hindsight_information: ""     # Facts unavailable at that stage
+    impact: ""
+    resolution: ""
+
+effective_controls:
+  - control: ""
+    evidence_pointers: []
+    observed_effect: ""
+
+implementation_questions:
+  - question: ""
+    answer_source: ""             # human | spec | repository | external research
+    should_have_been_resolved_at: ""
+
+candidate_lessons: []
+counterevidence: []

@@ -1,0 +1,238 @@
+review_version: 1
+project_key: "regista"
+reviewer: "reviewer-a"
+reviewed_at: "2026-07-14"
+
+lineage:
+  mode: "greenfield"
+  source_spec_pointer: "/projects/regista/spec.yaml (448 lines, Level 3); /projects/regista/spec.md (835 lines, v9 as of 2026-06-23)"
+  source_spec_fingerprint: "commit 502347c — initial spec.md (v3, 708 lines) + spec.yaml (420 lines), 2026-05-05; spec.yaml header notes regeneration against spec.md v8 (2026-05-26)"
+  implementation_baseline: "commit faa7d38 — Initial commit, 2026-05-05 04:20 UTC"
+  first_useful_delivery: "commit fbd28f0 — Implement substrate MVP: event-sourced coordination over Postgres, 2026-05-05 05:35 UTC (migrations/001_initial.sql, full src/ tree, docker-compose.test.yml, 117-line AGENTS.md)"
+  outcome: "still_active — latest commit b19e6bd (BC-301 content_hash validation, 2026-07-13); 30 Plans (001–030+) tracked; 1896 tests collected; spec at v9"
+
+starting_contract:
+  value_phase_summary: "5 phases. Phase 1 MVP: FR-01..FR-23 (core schema, claims, events, hooks, replay, query, signing, observability, concurrency, idempotency, consumer boundary). Phase 2 Fast-follow: FR-10/13/14/18 (reactivity + tooling). Phase 3 Authorization + replay resilience: FR-24/25/26/27. Phase 4 Operational: FR-28/29/30 (recurrence, composition, transparency-log anchoring). Phase 5 Future: federated UI, OIDC, month-partitioning. Dependency hints graph provided for 15 FRs."
+  active_extensions: []
+  assumptions:
+    - "Postgres available on homelab K3s with standard ACID semantics (vibe spec)"
+    - "Operator runs all agents and trusts them not to misdeclare role by default (actor-claimed trust tier); FR-24 provides opt-in enforcement"
+    - "Workflow files authored by operator, not untrusted parties"
+    - "License-cost-bound but token-spend unconstrained — verbose logging acceptable"
+    - "Federated UI is downstream and adapts to regista's contract, not vice versa"
+    - "Python acceptable as implementation language for MVP (existing factory is Python)"
+  known_risks:
+    - "BR-09: actor → allowed_roles enforcement initially deferred (resolved as FR-24 Phase 3)"
+    - "BR-13: per-project schema isolation is load-bearing; migration path to tenant_id-in-shared-schema documented"
+    - "Distributed-systems correctness (event-sourcing, durability, concurrency) — open question resolved 2026-05-05 via two-reviewer correctness pass"
+    - "Postgres major-version compatibility matrix — needs_research (resolved during build)"
+
+timeline_events:
+  - event: "Initial commit"
+    immutable_pointer: "faa7d38 (2026-05-05 04:20 UTC)"
+    significance: "Empty repository baseline; no code yet."
+  - event: "Spec v3 committed (starting contract)"
+    immutable_pointer: "502347c — spec.md (708 lines) + spec.yaml (420 lines)"
+    significance: "Level 3 spec with glossary, scope, MVP definition, dependency hints, 9 open questions, 6 assumptions, 30+ handoff decisions. Source of truth for all subsequent implementation."
+  - event: "Substrate MVP implemented (first useful delivery)"
+    immutable_pointer: "fbd28f0 — Implement substrate MVP: event-sourced coordination over Postgres"
+    significance: "Single commit delivering migrations, full src/_substrate tree, docker-compose, AGENTS.md, reasoning.log, worklog, reflection. Core event-sourcing + projection + claims operational."
+  - event: "First adversarial review: 12 security/correctness breadcrumbs filed"
+    immutable_pointer: "519ea2b — Adversarial review: file 12 security/correctness breadcrumbs (BC-100–111)"
+    significance: "First of many cross-model adversarial review rounds. Pattern established: review → file BC-XXX → resolve → re-review."
+  - event: "Spec updated to schema-per-project isolation"
+    immutable_pointer: "ca9586c — Resolve all open breadcrumbs, fix 7 bugs, update spec to schema-per-project"
+    significance: "Architectural decision: per-project Postgres schema isolation (BR-13) formalized after initial MVP used a different model."
+  - event: "RFC-062: single-source-of-truth backend contract"
+    immutable_pointer: "2ab9116 — Implement RFC-062: single-source-of-truth backend contract"
+    significance: "Response to recurring InMemorySubstrate divergence bugs. Established that both backends must conform to a single contract."
+  - event: "Phase 3 implemented (authorization + replay resilience)"
+    immutable_pointer: "c8f240a — Implement Phase 3: actor roles, replay resilience, update_not_before, field validation"
+    significance: "FR-24/25/26/27 delivered, closing BR-09 and several spec gaps."
+  - event: "Spec drift detected by external review"
+    immutable_pointer: "4170912 — BC-211/212/213: spec-drift findings from external review"
+    significance: "Implementation had drifted from spec. External review caught contradictions between spec.md and actual code behavior. Required reconciliation commit bb2768d."
+  - event: "RFC-001: un-partition events (revert premature optimization)"
+    immutable_pointer: "9565bcb — Implement RFC-001 Option C and BC-194: un-partition events, add coalesced heartbeat events"
+    significance: "Original spec included month-partitioning of events table. Reverted as premature at homelab scale. Migration 010 renumbered with no production data."
+  - event: "Spec v7: pluggable signing + RFC 3161 timestamping"
+    immutable_pointer: "b171dcf — Session 52: Complete Plans 011/012 — Ed25519, TSA, replay timestamps, spec v7"
+    significance: "Signing envelope evolved from v1 (HMAC-only) through v3 (hash chain). Ed25519 asymmetric signing added. Trust model significantly expanded beyond original spec."
+  - event: "Spec v9: entity generalization + crypto-agility"
+    immutable_pointer: "spec.md v9 (2026-06-23) — Plan 022"
+    significance: "Envelope v4 adds entity_kind/entity_id/prev_global_event_hash/hash_alg. Per-principal Ed25519 keys. Cross-project value-references (FR-22b). Trust model now far more complex than v3 starting contract."
+  - event: "Latest: BC-301 content_hash validation"
+    immutable_pointer: "b19e6bd (2026-07-13) — fix: BC-301 — content_hash length validation + payload size enforcement"
+    significance: "Input validation gap found and fixed. MAX_JSONB_BYTES = 1MB enforced in Jsonb wrapper. Project still active and accumulating hardening."
+
+findings:
+  - id: "FINDING-01"
+    summary: "Spec drift: implementation diverged from spec.md, detected by external review (BC-211/212/213). The spec and code contradicted each other on several points, requiring a reconciliation commit."
+    primary_class: "decomposition_gap"
+    contributing_classes: ["spec_inconsistency"]
+    evidence_pointers:
+      - "commit 4170912 — BC-211/212/213: spec-drift findings from external review"
+      - "commit bb2768d — Resolve spec drift BC-211/212, reconcile breadcrumbs, refactor _signing.py"
+      - "spec.md revision history: v9 notes 'Dead code removed from _signing.py' suggesting accumulated drift"
+    earliest_reasonable_detection_stage: "work decomposition — a spec-vs-implementation conformance check (or contract test pinning spec statements to code behavior) could have caught drift earlier. Not an elicitation issue; the drift is in repository-discoverable code."
+    hindsight_information: "The specific drift points (BC-211/212/213) are only visible from the external review that produced them; the commit messages do not enumerate the exact contradictions. The fact that dead code existed in _signing.py is known only from the v9 revision note."
+    impact: "Required reconciliation work, refactoring of _signing.py, and breadcrumb resolution. External reviewers found contradictions that internal review missed."
+    resolution: "Reconciliation commit bb2768d resolved BC-211/212; breadcrumbs closed. Spec updated to match implementation."
+
+  - id: "FINDING-02"
+    summary: "InMemorySubstrate diverged repeatedly from Postgres backend — at least 10 bugs found across multiple sweeps (BC-036, BC-040, BC-050/051/052, BC-128/139/140/141, BC-238–243). The dual-backend design created a class of bugs where the in-memory test backend did not match production Postgres behavior."
+    primary_class: "decomposition_gap"
+    contributing_classes: ["implementation_error"]
+    evidence_pointers:
+      - "commit 76cf93c — Validation scan: fix 10 InMemorySubstrate bugs, add INVALID_ACTOR_KIND, resolve BC-036"
+      - "commit 09f6a5b — fix: revert InMemorySubstrate read_events to priority-based dispatch (BC-040)"
+      - "commit c61fc07 — fix: resolve BC-050/051/052 — InMemorySubstrate poll_hooks parity"
+      - "commit 14dd8a9 — Resolve BC-128, BC-139, BC-140, BC-141; fix InMemory projection atomicity"
+      - "commit c20e269 — fix: adversarial review — witness, sidecar, InMemory bugs (BC-238–BC-243)"
+      - "commit 2ab9116 — Implement RFC-062: single-source-of-truth backend contract"
+      - "tests/test_in_memory_conformance.py — conformance test suite (added after repeated divergence)"
+    earliest_reasonable_detection_stage: "work decomposition — the invariant 'both backends must behave identically' should have been encoded as a conformance test suite before the second backend was built. RFC-062 was the belated formalization of this contract."
+    hindsight_information: "RFC-062 (single-source-of-truth backend contract) was not in the original spec; it was created after the divergence pattern was recognized. The original spec assumed dual backends without specifying a conformance obligation."
+    impact: "10+ bugs across multiple sessions, each potentially causing test-vs-production behavior divergence. InMemory is the test backend — bugs there can mask real issues or create false confidence."
+    resolution: "RFC-062 established single-source-of-truth contract. test_in_memory_conformance.py added. Later refactoring (c1aacfe) decomposed _in_memory.py (1514→145 lines) into mixin modules for better maintainability."
+
+  - id: "FINDING-03"
+    summary: "Signing envelope evolved through 5 versions (v1→v5), each adding fields that should have been in the original trust model. v2 added server-stamped fields to the signed envelope (BC-214/220). v3 added prev_event_hash hash chain (BC-233). v4 added entity_kind/entity_id/global hash chain. v5 added actor_kind/actor_metadata signing. The initial trust model was underspecified."
+    primary_class: "translation_gap"
+    contributing_classes: ["elicitation_gap"]
+    evidence_pointers:
+      - "spec.md revision history: v6 (BC-214) — 'Previously server-stamped fields (timestamp, event_seq, key_id, workflow_name, workflow_version) are now included in the canonical signing envelope'"
+      - "spec.md revision history: v8 (BC-233) — 'prev_event_hash BYTEA column added to events; each event binds to its predecessor'"
+      - "spec.md revision history: v9 (Plan 022) — 'Envelope v4 adds entity_kind, entity_id, prev_global_event_hash, hash_alg'"
+      - "commit 797f4da — feat: WI-208 — envelope v5 signs actor_kind/actor_metadata"
+      - "commit 7a42657 — fix: v5 tamper detection via stored-envelope consistency check"
+    earliest_reasonable_detection_stage: "elicitation — the trust model (which fields are integrity-protected vs. server-stamped vs. actor-claimed) is a domain question about threat model that a human could answer. The spec v2 two-reviewer correctness pass partially addressed this, but the envelope kept evolving through v5."
+    hindsight_information: "The specific fields needed in each envelope version (prev_event_hash, global_seq, entity_kind) depend on architectural decisions (hash chain, global ordering, entity generalization) that were not yet made at spec v3 time."
+    impact: "5 envelope versions means 4 rounds of revision to the signing model, each requiring migration, replay backward-compat, and re-verification. Backward-compat fallback logic (replay tries v2, then v1) adds complexity."
+    resolution: "Envelope v5 (WI-208) signs actor_kind/actor_metadata. Tamper detection via stored-envelope consistency check added. Replay handles all versions with fallback."
+
+  - id: "FINDING-04"
+    summary: "Month-partitioning of events table was specified and implemented (migration 010), then reverted as premature (RFC-001, BC-194). The original spec assumed partitioning was needed; the assumption was wrong at homelab scale."
+    primary_class: "translation_gap"
+    contributing_classes: []
+    evidence_pointers:
+      - "spec.yaml handoff.decisions_made: 'Event log retention: always-grow at homelab scale; month-partition at 1M events'"
+      - "commit 9565bcb — Implement RFC-001 Option C and BC-194: un-partition events, add coalesced heartbeat events"
+      - "commit c4e826b — Hygiene sweep: BC-194 tests, _ts_equal_within fix, migration renumbering, spec v5"
+      - "spec.md v5 revision: 'RFC-001 (revert migration 010 partitioning; events table is flat with global UNIQUE(event_id))'"
+    earliest_reasonable_detection_stage: "elicitation — the spec assumed partitioning was needed without evidence of volume. The homelab-scale assumption (≤10k work-items, ≤100k events) was stated but partitioning was specified anyway. A question about expected event volume per project would have surfaced this."
+    hindsight_information: "The partitioning was implemented and then reverted with no production data (spec v5 notes 'no production data'), so the cost was development time, not data migration."
+    impact: "Migration 010 was written, tested, and then reverted. Migrations renumbered. Partition gauges removed. Development effort wasted on premature optimization."
+    resolution: "RFC-001 Option C: events table is flat with global UNIQUE(event_id). ensure_event_partitions is now a no-op. Month-partition deferred to when volume warrants."
+
+  - id: "FINDING-05"
+    summary: "content_hash length validation and payload size enforcement were missing until BC-301 (latest commit). The Jsonb wrapper did not enforce MAX_JSONB_BYTES, allowing oversized payloads."
+    primary_class: "implementation_error"
+    contributing_classes: ["decomposition_gap"]
+    evidence_pointers:
+      - "commit b19e6bd — fix: BC-301 — content_hash length validation + payload size enforcement"
+      - "spec.md v9: 'JSONB size limit (BC-301): MAX_JSONB_BYTES = 1MB enforced in Jsonb wrapper'"
+    earliest_reasonable_detection_stage: "work decomposition — input validation on content_hash and payload size is a verification-layer obligation that should accompany the feature that introduces the field. content_hash was added as an actor-claimed field; validation should have been part of its introduction."
+    hindsight_information: "The specific MAX_JSONB_BYTES = 1MB threshold was decided at BC-301 time; the need for a limit was not raised when content_hash was introduced."
+    impact: "Oversized payloads could cause Postgres storage issues or denial-of-service. Low severity at homelab scale (trusted operators) but a correctness gap."
+    resolution: "MAX_JSONB_BYTES = 1MB enforced in Jsonb wrapper. content_hash length validated."
+
+  - id: "FINDING-06"
+    summary: "Adversarial review rounds repeatedly found critical/high bugs that internal review missed. At least 8 documented adversarial review rounds (BC-088–099, BC-100–111, BC-114–127, BC-128–138, BC-200–208, BC-238–243, BC-294/306/308/310, WI-071/072/203/092/077/073) found bugs across security, concurrency, and correctness dimensions."
+    primary_class: "decomposition_gap"
+    contributing_classes: []
+    evidence_pointers:
+      - "commit 8d27c5b — Resolve adversarial review: 12 critical/high/medium issues (BC-088–099)"
+      - "commit 519ea2b — Adversarial review: file 12 security/correctness breadcrumbs (BC-100–111)"
+      - "commit e048ab3 — Resolve adversarial review: close BC-114–127, implement GLM proposals 2+3"
+      - "commit b8e81ec — Deep scan remediation: fix 7 bugs (BC-132–138)"
+      - "commit 99717ae — fix: resolve BC-084/090/093/094/095/098 + adversarial review fixes"
+      - "commit 1752b2b — fix: resolve BC-294, BC-306, BC-308, BC-310 via cross-model adversarial review"
+      - "commit 087ecee — fix: WI-071/072/203/092/077/073 — critical/high bug sweep + adversarial review fixes"
+      - "git log: 94 commits reference BC-/breadcrumb/adversarial/review"
+    earliest_reasonable_detection_stage: "work decomposition — adversarial review is a verification layer that was applied post-implementation but not built into the plan. The recurring finding pattern suggests internal review was insufficient for security/correctness and an adversarial pass should be a planned verification step."
+    hindsight_information: "The specific bugs found in each round are only knowable from the review that found them. The pattern of recurring critical/high findings across 8+ rounds is the observable signal."
+    impact: "Each round found multiple critical/high bugs. Without adversarial review, these would have persisted. The bugs span concurrency (TOCTOU, race conditions), security (principal binding, tamper detection), and correctness (replay integrity, projection atomicity)."
+    resolution: "Each adversarial review round resulted in breadcrumb filings and fix commits. Plan 027 (review assurance + gate honesty) formalized review as a built-in gate."
+
+  - id: "FINDING-07"
+    summary: "Transition custom transitions were briefly halted (WI-072) then reverted — 'custom transitions are legitimate.' This indicates a misunderstanding of the spec's intent during implementation, requiring a revert."
+    primary_class: "implementation_error"
+    contributing_classes: ["translation_gap"]
+    evidence_pointers:
+      - "commit 1ab43ca — fix: revert WI-072 halt (custom transitions are legitimate) + WI-203 is_running race"
+    earliest_reasonable_detection_stage: "work decomposition — the spec allowed custom transitions, but implementation halted them. This is a contract violation caught by review, not an elicitation gap."
+    hindsight_information: "The specific reasoning behind the WI-072 halt is not visible from commit messages alone; only the revert is recorded."
+    impact: "Feature incorrectly halted, then restored. WI-203 is_running race also fixed in same commit."
+    resolution: "Reverted halt. Custom transitions confirmed as legitimate."
+
+effective_controls:
+  - control: "Two-reviewer correctness pass (spec v2)"
+    evidence_pointers:
+      - "spec.yaml open_questions: 'Domain-expert review for distributed-systems correctness' — category: resolved, 'Resolved 2026-05-05 — two-reviewer correctness pass completed. Findings integrated into spec v2.'"
+      - "spec.md v2 revision: 'integrated two-reviewer correctness pass. Adds API-layer idempotency, gap-free event_seq allocator + canonical lock target (§17), projection invariants (§18), HMAC-SHA256 + RFC 8785 canonical signing envelope'"
+    observed_effect: "The v2 review pass added concurrency contract (canonical lock target, gap-free event_seq), projection invariants, signing envelope, and trust tiers — all load-bearing architectural decisions that prevented whole classes of bugs. Without this pass, the MVP would have lacked idempotency and replay correctness."
+
+  - control: "Breadcrumb tracking (BC-XXX) for issue lifecycle"
+    evidence_pointers:
+      - "git log: 94 commits reference BC-/breadcrumb/adversarial/review"
+      - "commit 7e9ef36 — Resolve all 16 open breadcrumbs (BC-145–BC-160)"
+      - "commit 08285c3 — Close out all open breadcrumbs: BC-009/016/017/022/023/024/025"
+    observed_effect: "Breadcrumbs provided systematic issue tracking with lifecycle (file → resolve → close). Enabled sweep commits that resolved many breadcrumbs at once. Prevented issues from being forgotten between sessions."
+
+  - control: "Cross-model adversarial review (multiple AI models reviewing each other's work)"
+    evidence_pointers:
+      - "commit e865445 — Add kimi-k2p6-turbo positions on debates 001, 002"
+      - "commit 1752b2b — fix: resolve BC-294, BC-306, BC-308, BC-310 via cross-model adversarial review"
+      - "commit 3263c91 — fix: address adversarial review (Kimi) findings"
+      - "commit 891d8d2 — fix: in-depth review — 8 code fixes, tests, docs, breadcrumbs BC-314/315"
+    observed_effect: "Cross-model review found bugs that same-model review missed. Each round produced multiple critical/high findings. The diversity of reviewer models (GLM, Kimi, and others) surfaced different bug classes. This was the single most effective defect-detection control."
+
+  - control: "Backend conformance test suite (test_in_memory_conformance.py)"
+    evidence_pointers:
+      - "tests/test_in_memory_conformance.py"
+      - "commit 2ab9116 — Implement RFC-062: single-source-of-truth backend contract"
+    observed_effect: "After RFC-062, conformance tests pinned the contract that both Postgres and InMemory backends must satisfy. Subsequent InMemory bugs (BC-238–243) were caught faster. The test suite formalized the invariant that was previously implicit."
+
+  - control: "Spec revision discipline with explicit revision history"
+    evidence_pointers:
+      - "spec.md: 9 versioned revisions (v1–v9) with dated, detailed changelog"
+      - "spec.yaml: meta.spec_md_version tracks which MD version the YAML was regenerated against"
+    observed_effect: "Each spec revision documented what changed and why. This made spec drift (BC-211/212/213) detectable — the reviewer could compare spec history against code. Revision history also tracks which BC-XXX findings drove spec changes."
+
+  - control: "Session worklogs and reflections"
+    evidence_pointers:
+      - "commit ccf3304 — docs: session 83 worklog + reflection (WI-2.2 + WI-4.3)"
+      - "commit 6cd5570 — docs: session 86 worklog + reflection (Plan 027 + Windows DPAPI)"
+      - "commit ba6102b — docs: session 85 worklog + reflection (adversarial review hardening)"
+    observed_effect: "Session reflections captured what went wrong, what was learned, and what to do differently. Provided continuity across sessions and context for breadcrumb decisions."
+
+implementation_questions:
+  - question: "Should server-stamped fields (timestamp, event_seq, key_id) be included in the signed envelope?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "elicitation — this is a trust-model question that the original spec did not resolve. It was answered incrementally through BC-214 (v6), BC-233 (v8), and Plan 022 (v9). The two-reviewer correctness pass (spec v2) partially addressed it but the envelope kept evolving."
+  - question: "Is month-partitioning of the events table needed at homelab scale?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "elicitation — the spec assumed partitioning was needed (handoff.decisions_made: 'month-partition at 1M events') but implemented it before reaching that volume. RFC-001 reverted it. A question about expected event volume per project would have prevented the premature implementation."
+  - question: "How should the InMemory test backend maintain parity with the Postgres production backend?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "work decomposition — the dual-backend invariant should have been specified before the second backend was built. RFC-062 formalized it after 10+ divergence bugs. A conformance test suite should have been part of the original work decomposition."
+  - question: "What is the canonical lock target for per-work-item mutations?"
+    answer_source: "spec"
+    should_have_been_resolved_at: "elicitation — resolved in spec v2 (two-reviewer correctness pass). The answer (work_items_current row, READ COMMITTED + row lock) was not in the original v3 spec."
+  - question: "Should custom transitions be allowed or halted?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "work decomposition — WI-072 halted custom transitions then reverted them as legitimate. The spec allowed them; implementation briefly disallowed them. This should not have been a question."
+
+candidate_lessons:
+  - "Dual-backend designs (test in-memory + production database) need a conformance test suite specifying the shared contract before the second backend is built. Without it, divergence bugs recur (regista: 10+ InMemory bugs across 6+ sweeps). Control: work decomposition — RFC-062 + test_in_memory_conformance.py."
+  - "The signing/trust model (which fields are signed, server-stamped, or actor-claimed) should be fully specified at spec time. Underspecification leads to envelope version proliferation (regista: v1→v5, 5 revisions). Control: elicitation — trust-model probe for any system with cryptographic integrity."
+  - "Cross-model adversarial review is the highest-yield defect-detection control for security/correctness bugs. Same-model review consistently misses bugs that a different model finds (regista: 8+ rounds, each finding multiple critical/high bugs). Control: work decomposition — planned adversarial review step."
+  - "Spec-vs-implementation drift is detectable by external review but not by internal review. A conformance check (contract tests pinning spec statements to code behavior) would catch it earlier (regista: BC-211/212/213). Control: work decomposition — spec-to-code traceability."
+
+counterevidence:
+  - "The two-reviewer correctness pass (spec v2) was effective for the MVP scope but did not prevent envelope evolution (v1→v5) or partitioning reversal. A one-time review is insufficient for a long-lived project; the spec kept changing."
+  - "Breadcrumb tracking is effective for issue lifecycle but does not prevent bugs — it only tracks them after they are found. 94+ breadcrumbs were filed, indicating high defect introduction rate despite the tracking control."
+  - "The conformance test suite was added reactively (after RFC-062) rather than proactively. It helped after introduction but could not prevent the 10+ divergence bugs that preceded it. This suggests the control is effective for containment but not prevention."
+  - "Regista's spec level (Level 3) did not prevent spec drift, envelope evolution, or partitioning reversal. Higher spec level correlated with more thorough documentation but not with fewer defects. The defects were caught by verification (adversarial review, test gates), not by spec level."
+  - "The partitioning reversal (RFC-001) shows that spec assumptions can be wrong even with a Level 3 spec and two-reviewer pass. The assumption 'partitioning is needed' was never challenged because no one asked 'what is the expected event volume?'"

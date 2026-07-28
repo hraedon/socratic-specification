@@ -1,0 +1,272 @@
+review_version: 1
+project_key: "cert-watch-lineage"
+reviewer: "reviewer-a"
+reviewed_at: "2026-07-14"
+
+lineage:
+  mode: "factory_fixture"
+  source_spec_pointer: "cert-watch-3: /projects/software-factory/projects/cert-watch-3/spec.yaml (405 lines, Level 2, dated 2026-04-08, meta.name='cert-watch-2'); cert-watch-8: /projects/software-factory/projects/cert-watch-8/spec.yaml (734 lines, Level 3, dated 2026-04-19)"
+  source_spec_fingerprint: "cert-watch-3: commit feab926 (Reset: spec files only, 2026-04-11); cert-watch-8: commit b0baf48 (Initial project files, 2026-04-21). spec.lock.yaml present in both (cert-watch-3 hash: 67999e17bac0a3ea)"
+  implementation_baseline: "cert-watch-3: commit d1860b0 (skeleton: project structure and conventions, 2026-04-11 20:18); cert-watch-8: commit b0baf48 (2026-04-21)"
+  first_useful_delivery: "cert-watch-3: commit 558968b (prereq-database-abstraction: implementation, 2026-04-11 20:19); cert-watch-8: first prereq session_start at 2026-04-21T18:04 per .events.jsonl"
+  outcome: "cert-watch-3: partial — factory reported complete, 188 tests pass after fix-agent, but .review-feedback found critical scheduler wiring bug (fr09 non-functional in production) and handoff.md is an empty template. cert-watch-8: partial/abandoned — factory reported 'complete' with 0 work units, lineage.json shows 0 implementations and 0 verification for all 15 FRs, 413/429 tests pass but 13/15 FRs have no HTTP routes, services defined but unwired"
+
+starting_contract:
+  value_phase_summary: "cert-watch-3 (Level 2): Phase 1 MVP = FR-01..FR-10 (dashboard, TLS scan, upload, labels/tags, leaf/chain alerts, daily scheduler, manual scan, delete). Phase 2 = FR-11/12 (HTTPS, Teams). Phase 3 = FR-13..FR-16 (per-tag routing, auth, MSSQL, Azure Key Vault). cert-watch-8 (Level 3): MVP = FR-01..FR-11 (adds FR-11 scan failure tracking). Same domain, expanded to 15 FRs with more detail per FR. Both specs share the same intent: certificate expiry monitoring dashboard with scanning, upload, and tiered alerting."
+  active_extensions: []
+  assumptions:
+    - "Internal network is trusted; unauthenticated dashboard access acceptable (both specs)"
+    - "Unauthenticated SMTP relay on port 25 available (cert-watch-3)"
+    - "Uploaded certificates are legitimate; no trust chain validation needed (both specs)"
+    - "Docker container has network access to all monitored hosts on TLS ports (both specs)"
+    - "Scale remains under 50 entries; no pagination needed for v1 (cert-watch-3 only — cert-watch-8 adds pagination as FR-01)"
+    - "PFX files may or may not have password; upload form provides optional field (both specs)"
+    - "Scheduler uses container system timezone (cert-watch-3)"
+  known_risks:
+    - "HIPAA compliance review needed (cert-watch-3 open_question, needs_research, owner: human)"
+    - "Azure Key Vault integration scope and auth method (cert-watch-3, needs_research)"
+    - "Windows CA API capabilities for cert issuance (cert-watch-3, needs_research)"
+    - "Exact SMTP relay configuration in FQHC environment (cert-watch-3, needs_research)"
+    - "Dashboard HTTPS cert provisioning workflow (cert-watch-3, cheap_to_change)"
+    - "cert-watch-8 out_of_scope explicitly defers LDAP/Entra auth to Phase 2"
+
+timeline_events:
+  - event: "cert-watch-3 spec committed (Level 2 starting contract)"
+    immutable_pointer: "commit feab926 — Reset: spec files only (2026-04-11); spec.yaml meta.name='cert-watch-2' (mismatch with directory name cert-watch-3)"
+    significance: "Level 2 spec with 16 FRs, 14 ACs, 6 failure modes, 6 business rules, dependency hints. Note: spec.yaml meta.name is 'cert-watch-2', not 'cert-watch-3' — copy-paste from prior run."
+  - event: "cert-watch-3 skeleton + prereqs implemented"
+    immutable_pointer: "commit d1860b0 (skeleton) → 558968b (prereq-database-abstraction: implementation) → 171d432 (prereq-certificate-file-parsing) → fd80c5e (prereq-built-in-scheduler)"
+    significance: "Factory dispatched prereq agents sequentially, then FR agents. Three architectural prerequisites resolved as 'invisible_infrastructure' (database abstraction, cert parsing, scheduler)."
+  - event: "cert-watch-3 factory test gate: 7 failures, then fix agent, then pass"
+    immutable_pointer: ".factory/factory.log: 'Tests FAILED on main: 7 failed' → fix agent PID 349609 launched → 'Tests PASSED on main: 188 tests'"
+    significance: "Factory test gate caught 7 failures (6 in BR-01 status derivation, 1 in alert threshold ordering). Fix agent resolved them. But .factory/test-results.json still shows 7 failed/181 passed — artifact is stale, captured before fix agent."
+  - event: "cert-watch-3 .review-feedback: critical scheduler wiring bug found"
+    immutable_pointer: "/projects/software-factory/projects/cert-watch-3/.review-feedback"
+    significance: "Post-factory review found: app.state.scheduler is never set in app_factory.py. fr09_manual_scan.py _get_scheduler() always returns None → HTTP 503 on every request. Tests pass only because fixtures manually set app.state.scheduler (test_fr09_manual_scan.py line 116). Manual scan feature completely non-functional in production."
+  - event: "cert-watch-3 factory complete, handoff.md is empty template"
+    immutable_pointer: ".factory/handoff.md — template with placeholder comments ('Fill in: what the implementing agents built', 'Fill in: non-obvious choices made')"
+    significance: "Factory reported 'complete' but handoff.md was never filled in. Knowledge transfer artifact is empty. No decisions, open questions, or 'do not redo' notes recorded."
+  - event: "cert-watch-8 spec committed (Level 3, upgraded from cert-watch-3's Level 2)"
+    immutable_pointer: "commit b0baf48 — Initial project files (2026-04-21); spec.yaml meta.name='cert-watch-8', spec_level: 3"
+    significance: "Spec upgraded to Level 3 with 15 FRs (reorganized from cert-watch-3's 16), more detail per FR, added FR-11 (scan failure tracking), pagination in FR-01, SANs display. Same domain, same core intent."
+  - event: "cert-watch-8: 19 agents started per .events.jsonl"
+    immutable_pointer: "/projects/software-factory/projects/cert-watch-8/.events.jsonl — 19 session_start events from 2026-04-21T18:04 to 19:29"
+    significance: "Agents WERE dispatched: 4 prereqs, 3 test-architects, 11 FR agents (fr-01..fr-11), 1 docs agent. Code exists in src/. Tests exist in tests/. But lineage.json records 0 implementations and 0 verification for ALL FRs."
+  - event: "cert-watch-8: factory reports 'complete' with 0 work units"
+    immutable_pointer: ".factory/handoff.md: 'Zero work units were executed (completed: 0, failed: 0, pending: 0, running: 0)'; .factory/lineage.json: all FRs have implementations: [] and verification: []"
+    significance: "Critical discrepancy: .events.jsonl proves 19 agents started, code and 429 tests exist, but factory's lineage tracking recorded nothing. handoff.md says 'documentation-only run' which contradicts the evidence of agent dispatch and code production."
+  - event: "cert-watch-8: 413 tests pass, 16 skipped, 0 failed — but 13/15 FRs have no routes"
+    immutable_pointer: ".factory/test-results.json: 413 passed, 16 skipped, 0 failed, 429 total; src/cert_watch_8/web/routes/ contains only fr01_dashboard.py and fr02_scan.py"
+    significance: "Tests pass because they verify services in isolation (unit tests, structural wiring tests checking importability and method existence), not end-to-end behavior. 13 of 15 FRs have no HTTP route, so their services are unreachable from the dashboard."
+  - event: "cert-watch-8: handoff claims 'phantom coverage' but partially wrong"
+    immutable_pointer: ".factory/handoff.md: 'TLSScannerService is defined but never instantiated or called in production code'; src/cert_watch_8/web/routes/fr02_scan.py:17,44,80 — imports and calls TLSScannerService via FastAPI Depends()"
+    significance: "Handoff's integration reviewer missed that fr02_scan.py wires TLSScannerService through dependency injection. The 8 'phantom coverage' repository methods (get_entry_by_fingerprint, list_all_entries, save_entry, etc.) ARE called in fr02_scan.py. False positive in the integration review."
+  - event: "cert-watch-8: scheduler starts but no scan jobs registered"
+    immutable_pointer: "src/cert_watch_8/web/lifespan_hooks.py:91 — 'Note: Actual job scheduling (daily scan, alert check) will be done by implementing agents that register their callbacks'"
+    significance: "Scheduler service is instantiated and started on startup, but no implementing agent ever registered scan or alert-check callbacks. Daily scan cycle (FR-10) is non-functional — scheduler runs with zero jobs."
+
+findings:
+  - id: "FINDING-01"
+    summary: "cert-watch-3: Scheduler wiring bug (fr09_manual_scan) — app.state.scheduler is never set in app_factory.py. The manual scan endpoint always returns HTTP 503. Tests pass only because test fixtures manually inject app.state.scheduler."
+    primary_class: "decomposition_gap"
+    contributing_classes: ["environment_gap"]
+    evidence_pointers:
+      - "/projects/software-factory/projects/cert-watch-3/.review-feedback: 'app.state.scheduler is never set anywhere in production code... The route handler raises HTTP 503 on every request'"
+      - "src/cert_watch/web/app_factory.py:64-76 — scheduler IS initialized here (contradicts .review-feedback claim that app_factory never sets it)"
+      - "src/cert_watch/web/routes/fr09_manual_scan.py:19 — _get_scheduler() uses getattr(request.app.state, 'scheduler', None)"
+      - ".review-feedback: 'Tests pass only because test fixtures manually set app.state.scheduler (test_fr09_manual_scan.py line 116)'"
+    earliest_reasonable_detection_stage: "work decomposition — the gap between test-environment wiring (fixtures inject scheduler) and production wiring (app_factory should set it) is a consumer-map / verification-layer issue. A test that verifies the production app_factory path (not just the fixture path) would catch this. The factory's test gate passed because tests use fixtures that bypass the production wiring."
+    hindsight_information: "The .review-feedback was written after the factory run completed. Whether app_factory.py was fixed after this feedback is not visible in the factory artifacts (the factory reported complete before the review feedback). The app_factory.py in the current repo DOES initialize the scheduler (line 64-76), but this may have been added after the review feedback."
+    impact: "Manual scan feature (FR-09) completely non-functional in production. Users clicking 'Scan Now' get HTTP 503. Dashboard's manual scan button is dead."
+    resolution: ".review-feedback prescribes: 'Add lazy initialization of the scheduler in _get_scheduler().' Current app_factory.py (line 64-76) shows scheduler initialization, suggesting the fix was applied post-review. But this is not captured in factory evidence."
+
+  - id: "FINDING-02"
+    summary: "cert-watch-3: 7 test failures in BR-01 status derivation boundaries — tests for leaf warning (7-14 days), leaf attention (14-30 days), leaf healthy (>30 days), chain warning (2 weeks-1 month), chain attention (1-3 months), chain healthy (>3 months), and alert threshold ordering."
+    primary_class: "implementation_error"
+    contributing_classes: []
+    evidence_pointers:
+      - ".factory/test-results.json: 7 failed, 181 passed (188 total)"
+      - "Failed tests: tests/test_fr06_fr07_alerting.py::TestLeafStatusDerivation::test_leaf_warning_7_to_14_days, test_leaf_attention_14_to_30_days, test_leaf_healthy_over_30_days; TestChainStatusDerivation::test_chain_warning_2_weeks_to_1_month, test_chain_attention_1_to_3_months, test_chain_healthy_over_3_months; tests/test_repositories.py::TestAlertRepository::test_get_fired_thresholds_multiple"
+      - ".factory/factory.log: 'Tests FAILED on main: 7 failed' → fix agent → 'Tests PASSED on main: 188 tests'"
+      - "commit 2e8e51d — fix-phase-1: fix days_until_expiry rounding and alert ordering assertions"
+      - "commit 7e371ef — Fix agent pass 1: resolve test failures"
+    earliest_reasonable_detection_stage: "implementation — the status derivation logic (BR-01) is clearly specified with exact boundary values. The implementation had rounding errors and assertion ordering issues. The factory test gate caught this and auto-fixed it."
+    hindsight_information: "The exact nature of the rounding error (days_until_expiry) is visible only from the fix commit message. The fix agent resolved it, but the stale test-results.json still shows the pre-fix failures."
+    impact: "Status colors and alert thresholds would be wrong at boundary values (e.g., exactly 7 days, exactly 14 days). Users would see incorrect urgency indicators."
+    resolution: "Fix agent (commit 7e371ef) resolved all 7 failures. Factory log confirms 188 tests pass after fix. But test-results.json artifact was not updated to reflect the post-fix state."
+
+  - id: "FINDING-03"
+    summary: "cert-watch-3: .factory/test-results.json is stale — shows 7 failures, but factory.log records that fix agent resolved all failures and 188 tests passed. The test-results artifact does not reflect the final code state."
+    primary_class: "environment_gap"
+    contributing_classes: ["decomposition_gap"]
+    evidence_pointers:
+      - ".factory/test-results.json: 7 failed, 181 passed"
+      - ".factory/factory.log: 'Tests PASSED on main: 188 tests' (after fix agent)"
+      - "commits 2e8e51d, 7e371ef — fix commits that resolved the failures"
+    earliest_reasonable_detection_stage: "work decomposition — the factory's test-results artifact should be refreshed after the fix agent runs. The stale artifact misrepresents the final state to any reviewer relying on it."
+    hindsight_information: "The factory.log records two test runs: first failed (7), second passed (188). The test-results.json captures the first run only."
+    impact: "Any reviewer reading test-results.json without cross-referencing factory.log would conclude the project has 7 failing tests. Misleading artifact."
+    resolution: "Not resolved in factory artifacts. The stale test-results.json remains in .factory/."
+
+  - id: "FINDING-04"
+    summary: "cert-watch-3: handoff.md is an empty template — 'What was done this session', 'Decisions made', 'Do not redo', 'Open questions' sections all contain placeholder comments. No knowledge transfer occurred."
+    primary_class: "decomposition_gap"
+    contributing_classes: []
+    evidence_pointers:
+      - ".factory/handoff.md: '<!-- Fill in: what the implementing agents built -->', '<!-- Fill in: non-obvious choices made during this run -->', '<!-- Fill in: things that look wrong but are intentional -->', '<!-- Fill in: blockers or decisions deferred to next session -->'"
+      - ".factory/factory.log: 'Handoff template written to /projects/software-factory/projects/cert-watch-3/.factory/handoff.md'"
+    earliest_reasonable_detection_stage: "work decomposition — the factory writes the handoff template but no agent fills it in. This is a factory process gap: the handoff generation step exists but produces no content."
+    hindsight_information: "The factory.log confirms the template was written programmatically ('Handoff template written to...'). No agent was tasked with filling it in."
+    impact: "Next session or reviewer has no record of decisions, open questions, or intentional choices. The scheduler wiring bug (FINDING-01) and the 7 test failures (FINDING-02) are not documented in the handoff."
+    resolution: "Not resolved. Handoff.md remains an empty template."
+
+  - id: "FINDING-05"
+    summary: "cert-watch-8: Factory lineage tracking failure — lineage.json records 0 implementations and 0 verification for ALL 15 FRs, but .events.jsonl shows 19 agents started, code exists in src/, and 429 tests exist. The factory's lineage tracking did not record the work that was done."
+    primary_class: "decomposition_gap"
+    contributing_classes: []
+    evidence_pointers:
+      - ".factory/lineage.json: every FR has 'implementations': [] and 'verification': []"
+      - ".events.jsonl: 19 session_start events (4 prereqs, 3 test-architects, 11 FR agents, 1 docs)"
+      - ".factory/baselines/: 22 baseline YAML files (fr-01 through fr-11, 4 prereqs, skeleton-architect, 3 test-architects, 2 stub-generators, WU-docs)"
+      - "src/cert_watch_8/ — full code tree with services, repositories, infrastructure, web routes"
+      - "tests/ — 429 tests (413 passed, 16 skipped)"
+      - ".factory/handoff.md: 'Zero work units were executed (completed: 0, failed: 0, pending: 0, running: 0)'"
+    earliest_reasonable_detection_stage: "work decomposition — this is a factory instrumentation gap. The factory dispatched agents (events prove it) and agents produced code (src/ proves it), but the lineage tracking mechanism failed to record the association between work units and FRs. The factory's bridge.yaml reported 'complete' with 0 work units, contradicting the evidence."
+    hindsight_information: "The handoff.md notes: 'This is the cert-watch-7 handoff lie bug' — suggesting this is a known recurring issue across factory runs (cert-watch-7 had the same problem)."
+    impact: "Lineage.json is the factory's traceability artifact. With all implementations empty, there is no FR-to-code traceability. Reviewers cannot determine which agent built which feature. The factory's 'complete' status is meaningless when 0 work units are recorded."
+    resolution: "Not resolved. The handoff itself flags this as a known bug ('cert-watch-7 handoff lie bug')."
+
+  - id: "FINDING-06"
+    summary: "cert-watch-8: Phantom coverage — 13 of 15 FRs have no HTTP routes. Only fr01_dashboard.py and fr02_scan.py exist in web/routes/. Services for upload (FR-04/05), alerting (FR-06/07/08), labels/tags (FR-09), scheduler (FR-10), scan failure tracking (FR-11), delete (FR-14), search (FR-15) are defined as service classes but never wired to HTTP endpoints."
+    primary_class: "decomposition_gap"
+    contributing_classes: ["implementation_error"]
+    evidence_pointers:
+      - "src/cert_watch_8/web/routes/ — only fr01_dashboard.py and fr02_scan.py exist"
+      - "src/cert_watch_8/services/ — scanner.py, parser.py, alert.py, scheduler.py, notification.py all defined"
+      - ".factory/lineage.json FR-02 integration_findings: 'TLSScannerService is defined but never instantiated or called in production code' (partially false — fr02_scan.py does call it)"
+      - ".factory/lineage.json FR-04: 'CertificateParserService is defined but never instantiated or called' (true — no upload route exists)"
+      - ".factory/lineage.json FR-06/07/08: 'EmailAlertService is defined but never instantiated or called' (true — no alert route exists)"
+      - ".factory/lineage.json FR-10: 'Daily scan scheduler lacks integration with TLSScannerService and repository layer' (true — no scan job registered)"
+    earliest_reasonable_detection_stage: "work decomposition — the factory's work decomposition dispatched FR agents to implement services but did not verify that each FR had a corresponding HTTP route wired into the application. The route layer is the consumer of the service layer; missing routes mean services are orphaned. A consumer-map check ('does each FR have a reachable entry point?') would catch this."
+    hindsight_information: "The handoff's integration review identified this issue, but its static analysis missed fr02_scan.py's usage of TLSScannerService (false positive). The broader pattern (13/15 FRs unwired) is correct."
+    impact: "Dashboard can display certificates (FR-01) and scan a host (FR-02), but users cannot upload certificates (FR-04/05), receive alerts (FR-06/07/08), edit labels/tags (FR-09), trigger daily scans (FR-10), track scan failures (FR-11), delete entries (FR-14), or search (FR-15). Most MVP features are non-operational despite passing tests."
+    resolution: "Not resolved. Handoff recommends: 'Wire existing services — Instantiate and integrate TLSScannerService, CertificateParserService, EmailAlertService in the application bootstrap' and 'Implement actual FR work units.'"
+
+  - id: "FINDING-07"
+    summary: "cert-watch-8: 413 tests pass despite 13/15 FRs having no HTTP routes. Tests verify service-level behavior (importability, method existence, isolated service logic) rather than end-to-end HTTP behavior. The test suite creates a false sense of coverage."
+    primary_class: "decomposition_gap"
+    contributing_classes: ["environment_gap"]
+    evidence_pointers:
+      - ".factory/test-results.json: 413 passed, 16 skipped, 0 failed"
+      - "tests/integration/test_wiring.py — checks service importability, method existence, ABC implementation, and that services 'can use repository' (saves one entry). Does NOT test that HTTP routes call services."
+      - "tests/integration/test_wiring.py:258 — 'TestRouteModuleStructure' — only verifies routes package exists and discover_routes is callable, not that routes are registered for each FR"
+      - "tests/integration/test_wiring.py:373 — 'TestNoOrphanServices' — only checks Noop stubs exist and concrete services override them, not that services are called in production"
+      - "tests/unit/services/ — unit tests for alert service, scheduler, parser in isolation"
+    earliest_reasonable_detection_stage: "work decomposition — the test architect designed tests that verify service correctness but not route wiring. A test that verifies 'each FR has a registered route that successfully calls its service' would catch the phantom coverage. The factory's test gate passed because it measured the wrong thing."
+    hindsight_information: "The test_wiring.py file was clearly designed to catch orphan services (its docstring says so: 'This catches orphan services that pass their own tests but are never invoked in production'), but its implementation checks structural properties (importability, method existence) rather than behavioral wiring (route calls service)."
+    impact: "Factory reported 'complete' with 0 test failures, giving false confidence. A reviewer relying on test pass rate would conclude the project is functional. In reality, 13/15 features are unreachable."
+    resolution: "Not resolved. The wiring tests exist but are structurally insufficient."
+
+  - id: "FINDING-08"
+    summary: "cert-watch-8: Handoff integration review has false positives — claims TLSScannerService and 8 repository methods are 'never called in production' but fr02_scan.py imports and calls them via FastAPI Depends() and direct invocation."
+    primary_class: "implementation_error"
+    contributing_classes: ["decomposition_gap"]
+    evidence_pointers:
+      - ".factory/handoff.md: 'TLSScannerService is defined but never instantiated or called in production code. TLS scanning functionality (FR-02, FR-03) is not operational.'"
+      - ".factory/handoff.md: '8 phantom coverage issues — Methods that are tested but NEVER invoked in production code: get_entry_by_fingerprint, list_all_entries, save_entry, delete_entry, update_entry_hosts, update_entry_metadata, record_scan'"
+      - "src/cert_watch_8/web/routes/fr02_scan.py:17 — 'from cert_watch_8.services.scanner import TLSScannerService'"
+      - "src/cert_watch_8/web/routes/fr02_scan.py:80 — 'scan_result = await scanner.scan_host(host, port)'"
+      - "src/cert_watch_8/web/routes/fr02_scan.py:130 — 'existing = await repo.get_entry_by_fingerprint(entry.fingerprint)'"
+      - "src/cert_watch_8/web/routes/fr02_scan.py:143 — 'await repo.save_entry(entry)'"
+      - "src/cert_watch_8/web/routes/fr02_scan.py:157 — 'await repo.record_scan(scan_result)'"
+    earliest_reasonable_detection_stage: "implementation — the integration review's static analysis did not follow FastAPI's Depends() injection pattern, leading to false positives. This is a tooling limitation in the factory's integration reviewer, not a spec or decomposition issue."
+    hindsight_information: "The false positives are only verifiable by reading the route source code, which the integration reviewer apparently did not do (or its analysis tool did not follow dependency injection)."
+    impact: "False positives in the handoff undermine trust in the integration review. Reviewers may waste time investigating 'phantom coverage' that is actually wired. Conversely, the true positives (FR-04/05/06/07/08/10/11 unwired) may be dismissed as similarly false."
+    resolution: "Not resolved. The handoff's false-positive claims remain in the artifact."
+
+  - id: "FINDING-09"
+    summary: "cert-watch-3 spec.yaml meta.name is 'cert-watch-2', not 'cert-watch-3' — copy-paste from a prior run that was not updated. The spec content matches cert-watch-3's directory, but the identifier is wrong."
+    primary_class: "spec_inconsistency"
+    contributing_classes: []
+    evidence_pointers:
+      - "cert-watch-3/spec.yaml line 2: 'name: \"cert-watch-2\"'"
+      - "cert-watch-3 directory: /projects/software-factory/projects/cert-watch-3/"
+      - "cert-watch-3/.factory/factory.log: 'Detected pytest in cert-watch-3' (factory uses correct name)"
+    earliest_reasonable_detection_stage: "work decomposition — the spec identifier should be validated against the project directory name. A factory gate checking spec.yaml meta.name == directory name would catch this."
+    hindsight_information: "None — this is a direct observation from the current spec.yaml."
+    impact: "Low direct impact (factory uses directory name, not spec name). But it indicates the spec was copied from cert-watch-2 without updating the identifier, which could cause confusion in cross-referencing."
+    resolution: "Not resolved in cert-watch-3. cert-watch-8's spec.yaml correctly states meta.name='cert-watch-8'."
+
+  - id: "FINDING-10"
+    summary: "cert-watch-8: Scheduler starts on application startup (lifespan_hooks.py) but no scan or alert-check jobs are registered. The comment says 'jobs to be registered by implementing agents' but no agent registered them. Daily scan cycle (FR-10) is non-functional."
+    primary_class: "decomposition_gap"
+    contributing_classes: []
+    evidence_pointers:
+      - "src/cert_watch_8/web/lifespan_hooks.py:86-87 — '_scheduler_instance = APSchedulerService(); await _scheduler_instance.start()'"
+      - "src/cert_watch_8/web/lifespan_hooks.py:91 — 'Note: Actual job scheduling (daily scan, alert check) will be done by implementing agents that register their callbacks'"
+      - ".factory/lineage.json FR-10: 'Daily scan scheduler (FR-10) lacks integration with TLSScannerService and repository layer. Scheduled scans will not execute or persist results.'"
+    earliest_reasonable_detection_stage: "work decomposition — the factory's work decomposition separated scheduler startup (infrastructure) from job registration (FR implementation), but no FR agent was tasked with or completed the job registration step. A consumer-map check ('does the scheduler have at least one registered job?') would catch this."
+    hindsight_information: "The lifespan_hooks.py comment explicitly defers job registration to 'implementing agents', but the factory reported 0 work units, so no agent ever registered jobs."
+    impact: "Daily automatic scan cycle (FR-10) does not run. Certificates are never automatically re-scanned. Alert checks (FR-06/07) are never triggered. The core 'set-and-forget' value proposition (stated in cert-watch-3 intent_signals: 'We're very bad at remembering certs') is unfulfilled."
+    resolution: "Not resolved."
+
+effective_controls:
+  - control: "cert-watch-3: Factory test gate with auto-fix agent"
+    evidence_pointers:
+      - ".factory/factory.log: 'Tests FAILED on main: 7 failed' → fix agent launched → 'Tests PASSED on main: 188 tests'"
+      - "commits 2e8e51d, 7e371ef — fix commits"
+    observed_effect: "The test gate caught 7 implementation errors (BR-01 boundary conditions, alert threshold ordering) and the fix agent resolved them before the factory reported complete. Without this gate, the 7 failures would have shipped. However, the stale test-results.json means the gate's final pass state is not captured in the artifact."
+
+  - control: "cert-watch-3: Post-factory .review-feedback correctness review"
+    evidence_pointers:
+      - "/projects/software-factory/projects/cert-watch-3/.review-feedback"
+    observed_effect: "Found the critical scheduler wiring bug (fr09 non-functional) that the factory's own test gate missed. This is evidence that the factory's test gate alone is insufficient — it tests fixture-injected paths, not production wiring paths. The review feedback prescribes a specific fix (lazy initialization in _get_scheduler)."
+
+  - control: "cert-watch-8: test_wiring.py (orphan service detection attempt)"
+    evidence_pointers:
+      - "tests/integration/test_wiring.py — docstring: 'These tests verify that service implementations are actually imported and used by route handlers or schedulers - not just by tests. This catches orphan services.'"
+    observed_effect: "The test architect recognized the phantom-coverage risk and designed tests to catch it. However, the tests checked structural properties (importability, method existence, ABC conformance) rather than behavioral wiring (route calls service). As a result, 413 tests passed despite 13/15 FRs being unwired. The control's intent was correct but its implementation was insufficient."
+
+  - control: "cert-watch-8: Integration review in handoff (phantom coverage detection)"
+    evidence_pointers:
+      - ".factory/handoff.md: 'Integration Review: Phantom Coverage Issues' section"
+      - ".factory/lineage.json: integration_findings per FR"
+    observed_effect: "The integration review identified that services were defined but not wired. This is the correct diagnosis for 13/15 FRs. However, it had false positives for FR-02 (fr02_scan.py does wire TLSScannerService). The control detected the problem but its accuracy was undermined by false positives."
+
+  - control: "cert-watch-3: Factory work decomposition with prerequisite resolution"
+    evidence_pointers:
+      - "spec.yaml mvp.architectural_prerequisites: 3 prerequisites with resolution: invisible_infrastructure"
+      - "git log: prereq agents dispatched sequentially before FR agents"
+    observed_effect: "The factory resolved architectural prerequisites (database abstraction, cert parsing, scheduler) before FR implementation. This prevented FR agents from blocking on infrastructure decisions. cert-watch-3 produced a more complete implementation (6 routes for 10 FRs) than cert-watch-8 (2 routes for 15 FRs), suggesting the prerequisite-first decomposition was effective."
+
+implementation_questions:
+  - question: "Should the test suite verify that each FR has a registered HTTP route, not just that services exist?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "work decomposition — cert-watch-8's test_wiring.py was designed to catch orphan services but checked structural properties instead of behavioral wiring. The question 'does each FR have a reachable entry point?' should be a test-architect obligation, answered before tests are written."
+  - question: "Should the factory's lineage tracking record work units even when the bridge.yaml reports 0?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "work decomposition — cert-watch-8's .events.jsonl proves 19 agents ran, but lineage.json shows 0 implementations. The lineage tracking should be tied to agent dispatch events, not to bridge.yaml status. This is a factory instrumentation design question."
+  - question: "Should the handoff.md be filled in by an agent, or is it acceptable to leave it as a template?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "work decomposition — cert-watch-3's handoff.md is an empty template. The factory writes the template but no agent fills it in. If the handoff is a required knowledge-transfer artifact, a 'handoff generation' work unit should be part of the decomposition."
+  - question: "Should test-results.json be refreshed after the fix agent runs?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "work decomposition — cert-watch-3's test-results.json shows 7 failures, but the factory.log records that the fix agent resolved them. The artifact should reflect the final state, not the pre-fix state."
+  - question: "Is the spec.yaml meta.name validated against the project directory name?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "work decomposition — cert-watch-3's spec.yaml says meta.name='cert-watch-2' but the directory is cert-watch-3. A factory gate checking name consistency would catch this copy-paste error."
+
+candidate_lessons:
+  - "Factory test gates that test fixture-injected paths (not production wiring) produce false confidence. cert-watch-3's test gate passed 188 tests but missed that app.state.scheduler was never set in production. Control: test decomposition must include at least one test that exercises the production app_factory path, not just fixture-overridden paths."
+  - "Service-level tests (importability, method existence, ABC conformance) do not verify that services are wired to HTTP routes. cert-watch-8 had 413 passing tests but 13/15 FRs had no routes. Control: a 'route coverage' test verifying each FR has a registered, callable HTTP endpoint is needed for web-service projects."
+  - "Factory lineage tracking that records 0 work units despite 19 agents running and producing code is a critical instrumentation failure. cert-watch-8's lineage.json is empty, making FR-to-code traceability impossible. Control: lineage should be tied to agent dispatch and code production, not to bridge.yaml status."
+  - "Spec level does not predict implementation completeness. cert-watch-3 (Level 2) produced 6 routes for 10 FRs; cert-watch-8 (Level 3) produced 2 routes for 15 FRs. The higher spec level correlated with more documentation but less complete wiring. Control: spec level measures specification thoroughness, not implementation completeness."
+  - "Handoff artifacts that are templates with placeholder content provide no knowledge transfer. cert-watch-3's handoff.md is empty. Control: if handoff is required, a 'handoff completion' work unit should be part of the factory decomposition, with a gate checking that all template sections are filled."
+
+counterevidence:
+  - "cert-watch-3 (Level 2 spec) produced more complete wiring (6/10 FRs have routes) than cert-watch-8 (Level 3 spec, 2/15 FRs have routes). This counteracts the hypothesis that higher spec levels produce better implementations. The spec level measures documentation thoroughness, not implementation quality."
+  - "cert-watch-3's factory test gate caught and fixed 7 implementation errors. cert-watch-8's factory test gate passed 413 tests with 0 failures — but the 0-failure result was misleading because tests don't exercise missing routes. A passing test gate does not imply a functional product."
+  - "cert-watch-8's integration review (phantom coverage detection) had false positives for FR-02 — it claimed TLSScannerService was never called, but fr02_scan.py calls it via FastAPI Depends(). This undermines the integration review's reliability. The same review correctly identified 13/15 FRs as unwired, but the false positive for FR-02 shows the tooling is imperfect."
+  - "cert-watch-3's .review-feedback found the scheduler wiring bug that the factory's test gate missed. This shows that post-factory human (or external agent) review adds value beyond automated test gates. However, cert-watch-8 had no equivalent .review-feedback file, so the same control was not applied."
+  - "The factory's work decomposition in cert-watch-3 (prereqs → FR agents → test architect → fix agent → docs) produced a more complete result than cert-watch-8's apparently similar decomposition. The difference may be in execution (cert-watch-8's lineage shows 0 work units recorded) rather than in decomposition design. This suggests the factory's execution reliability, not just its decomposition, determines outcomes."
+  - "cert-watch-8's test_wiring.py was explicitly designed to catch orphan services (its docstring says so) but checked structural properties instead of behavioral wiring. This shows that the control's intent was correct but its implementation was insufficient — the test architect recognized the risk but designed tests that could not detect it."

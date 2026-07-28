@@ -1,0 +1,31 @@
+lesson_version: 1
+id: "LESSON-001"
+statement: ""
+failure_or_success_class: ""
+
+support:
+  independent_lineages: []
+  evidence_pointers: []
+  synthetic_eval_cases: []
+
+counterevidence:
+  projects_or_cases: []
+  strongest_alternative_explanation: ""
+
+routing:
+  earliest_correct_boundary: ""   # elicitation | extension | brownfield | decomposition | tooling | project_only
+  proposed_home: ""
+  why_not_earlier: ""
+  why_not_later: ""
+
+cost:
+  additional_human_questions: 0
+  additional_agent_work: ""
+  false_positive_risk: ""
+
+pilot:
+  change_to_test: ""
+  promotion_bar: ""
+  rejection_bar: ""
+
+status: "candidate"              # candidate | pilot | accepted | rejected

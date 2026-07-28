@@ -1,0 +1,279 @@
+review_version: 1
+project_key: "regista"
+reviewer: "Reviewer B"
+reviewed_at: "2026-07-14"
+
+lineage:
+  mode: "greenfield"
+  source_spec_pointer: "/projects/regista/spec.md (authoritative); /projects/regista/spec.yaml (machine-readable sidecar, Level 3)"
+  source_spec_fingerprint: "spec.md sha256:61da6fc6e1b3f2bb484e53bfe5f10ed9b9dab1a98edaf8ee748b4311af8d1489; spec.yaml sha256:a17a00074391a655dcca7da2277bb812c33df2f05985cb89c05c59c6ffeb5fd6"
+  implementation_baseline: "faa7d38 Initial commit → 502347c Add spec.md (v3) and spec.yaml → fbd28f0 Implement substrate MVP: event-sourced coordination over Postgres"
+  first_useful_delivery: "fbd28f0 Implement substrate MVP: event-sourced coordination over Postgres (core library, schema, migrations, smoke tests). Note: no downstream deployment telemetry is retained in this repository."
+  outcome: "still_active"
+
+starting_contract:
+  value_phase_summary: |
+    Phase 1 (MVP): replace reasoning.log for one Software Factory workflow with durable claims, role enforcement, replay, structured work-item discovery, observability (FR-01..FR-23 core set).
+    Phase 2 (Fast-follow): hooks/validators, escalation, dead-letter requeue, lint helper (FR-10, FR-13, FR-14, FR-18).
+    Phase 3 (Authorization + replay resilience): actor→allowed_roles enforcement, continue-on-revoked replay, update_not_before, transition-time field validation (FR-24..FR-27).
+    Phase 4 (Operational): recurring work-items, workflow composition, transparency-log anchoring (FR-28..FR-30).
+    Phase 5 (Future): federated UI, OIDC verifier, month-partitioning.
+  active_extensions: []
+  assumptions:
+    - "Postgres available on homelab K3s and provides standard ACID semantics"
+    - "Operator runs all agents and trusts them not to misdeclare role by default (FR-24 opt-in enforcement available)"
+    - "Workflow files authored by operator, not untrusted parties"
+    - "License-cost-bound but token-spend unconstrained; verbose logging acceptable"
+    - "Federated UI is downstream and adapts to regista contract, not vice versa"
+    - "Python acceptable as implementation language for MVP"
+  known_risks:
+    - "HMAC symmetric signing: same key signs and verifies; operator can forge events (accepted for homelab threat model) — §17.9.1"
+    - "Plaintext HMAC key material in Python process memory (BC-100)"
+    - "actor_metadata.role is self-attested until FR-24 registers roles (BC-101)"
+    - "No rate limiting on library API endpoints (BC-102)"
+    - "rfc8785 PyPI dependency is a single point of signature-integrity failure; vendoring planned (BC-172 / Plan 008 WS-3)"
+    - "Unknown key status in key file silently skipped, risking rotation typos (BC-174)"
+    - "Schema-per-project may not scale past ~30 projects; migration path to tenant_id-in-shared-schema documented (BR-13)"
+    - "OIDC verifier, federated UI, and workflow file composition deferred"
+    - "Event log retention: always-grow at homelab scale; re-partition recipe deferred"
+
+timeline_events:
+  - event: "Repository initialized"
+    immutable_pointer: "commit faa7d38"
+    significance: "Empty project root; no code."
+  - event: "Level 3 spec (spec.md v3 / spec.yaml) committed as starting contract"
+    immutable_pointer: "commit 502347c"
+    significance: "Authoritative spec sidecar established; MVP, phases, ACs, business rules, and concurrency contract are present."
+  - event: "First implementation commit: event-sourced coordination library over Postgres"
+    immutable_pointer: "commit fbd28f0"
+    significance: "MVP schema, migrations, Regista public API, claims, events, workflow registry, and smoke tests delivered."
+  - event: "Phase 2 delivered: escalation, hooks/validators, dead-letter requeue, lint helper"
+    immutable_pointer: "commit bb9e9d8"
+    significance: "Adds reactivity primitives; sync validators with 5s timeout and async hook queue."
+  - event: "Audit sweep closes critical correctness bugs (BC-020/021)"
+    immutable_pointer: "commit 83cd3ec"
+    significance: "Early adversarial review found replay, hook, and idempotency gaps before public release."
+  - event: "Phase 3 delivered: actor roles, replay resilience, update_not_before, field validation"
+    immutable_pointer: "commit c8f240a"
+    significance: "Closes BR-09 opt-in role enforcement and makes replay practical after key rotation."
+  - event: "Production readiness: migration packaging, metrics, spec sync, replay errors, test coverage"
+    immutable_pointer: "commit b492393"
+    significance: "Library becomes pip-installable; structured replay error handling and version pinning added."
+  - event: "RFC-001 reverts events-table partitioning to flat table with global UNIQUE(event_id)"
+    immutable_pointer: "commit a193087 (v0.1.1); CHANGELOG.md v0.1.1"
+    significance: "Architecture reset: partitioned table broke global event_id uniqueness and hook_queue FK. ensure_event_partitions becomes no-op."
+  - event: "InMemorySubstrate added; later parity bugs force shared contract extraction"
+    immutable_pointer: "commit 543eb77 (BC-037..038 InMemorySubstrate); commit 154a56d (RFC-062 single-source-of-truth backend contract via _contract.py)"
+    significance: "Dual-backend divergence repeatedly surfaced; contract extraction and property-based conformance tests instituted."
+  - event: "Trust model hardening (Plan 008): vendored rfc8785, env-var key injection, strict_roles, unknown-key-status failure"
+    immutable_pointer: "commit 2ab9116 (RFC-062 + BC fixes); CHANGELOG v0.2.0"
+    significance: "Residual BC-100..102 risks accepted; concrete controls added for supply-chain and rotation safety."
+  - event: "Signing envelope evolves v1→v5: timestamp/key_id/event_seq/server-stamped fields signed, prev_event_hash/global_seq, actor_kind/actor_metadata, entity_kind/hash_alg"
+    immutable_pointer: "commits 765e7f2 (v5 actor_kind), 7a42657 (v5 tamper detection), b19e6bd (envelope v4 entity generalization)"
+    significance: "Non-repudiation and cross-backend consistency required repeated envelope expansions; backward-compat version fallback added."
+  - event: "Project renamed substrate→regista"
+    immutable_pointer: "commit fc2603f / tag v0.4.0-pre-rename; CHANGELOG v0.4.0"
+    significance: "Breaking rename of module, env vars, and schema; migration guide provided for consumers."
+  - event: "Public release 0.5.0 plus ongoing Plans 025-031 (suite cohesion, principal keys, custody, encryption, segment sealing)"
+    immutable_pointer: "tag v0.5.0; commit 9a173c1; latest commit b19e6bd"
+    significance: "Library is actively extended; latest work hardens principal lifecycle and payload encryption at rest."
+
+findings:
+  - id: "FINDING-01"
+    summary: "Monthly events-table partitioning was committed and then reverted because it broke global event_id uniqueness and the hook_queue foreign-key constraint."
+    primary_class: "decomposition_gap"
+    contributing_classes: ["spec_inconsistency"]
+    evidence_pointers:
+      - "CHANGELOG.md v0.1.1: RFC-001 reverted partitioning; events table is flat with global UNIQUE(event_id)"
+      - "commit a193087 / v0.1.1: ensure_event_partitions() no-op"
+      - "spec.md §17: concurrency contract assumes flat events table and global event_seq/global_seq"
+    earliest_reasonable_detection_stage: "work_decomposition / schema design (before first migration)"
+    hindsight_information: "Postgres cannot maintain a single-column FK from hook_queue.event_id to a partitioned events table without including the partition key; hindsight available after attempting migration 010."
+    impact: "Architecture reset in v0.1.1; migration renumbering, metric removal, and deprecation of partition helpers."
+    resolution: "Flat events table with global UNIQUE(event_id); re-partitioning documented as future recipe when volume warrants."
+
+  - id: "FINDING-02"
+    summary: "Postgres and InMemory backends diverged repeatedly until a single-source-of-truth contract module was extracted."
+    primary_class: "decomposition_gap"
+    contributing_classes: ["implementation_error"]
+    evidence_pointers:
+      - "commit 543eb77 BC-037/033/034/035/038: runtime ref validation, documentation RFCs, InMemorySubstrate"
+      - "commit 09f6a5b BC-040: revert InMemorySubstrate read_events to priority-based dispatch"
+      - "commit 154a56d RFC-062: single-source-of-truth backend contract via _contract.py"
+      - "AGENTS.md: RFC-062 shared validation/decision functions used by both Postgres and InMemory backends"
+      - "CHANGELOG.md v0.1.0: property-based conformance tests via hypothesis"
+    earliest_reasonable_detection_stage: "work_decomposition (when second backend was planned)"
+    hindsight_information: "Property-based conformance testing later showed that duplicated validation logic in two backends drifts with every feature."
+    impact: "Multiple BC batches (BC-037..040, later BC-114..127) and eventual contract extraction; slowed delivery of InMemory backend."
+    resolution: "_contract.py holds ~20 pure functions shared by both backends; hypothesis conformance tests run in CI."
+
+  - id: "FINDING-03"
+    summary: "The signing envelope was too narrow at first: server-stamped fields, hash chain, global sequence, and actor metadata were added in successive versions."
+    primary_class: "translation_gap"
+    contributing_classes: ["elicitation_gap"]
+    evidence_pointers:
+      - "spec.md revision history v5/v6/v7/v8/v9: envelope v2..v4 additions"
+      - "commit 765e7f2: envelope v5 signs actor_kind/actor_metadata"
+      - "commit 7a42657: v5 tamper detection via stored-envelope consistency check"
+      - "commit b19e6bd (latest): envelope v4 entity generalization"
+      - "spec.md §17.9.1/§17.11: trust tiers and backward-compat envelope-version fallback"
+    earliest_reasonable_detection_stage: "spec synthesis (Level 3) — the non-repudiation threat model needed all integrity-relevant fields inside the signed envelope."
+    hindsight_information: "Hindsight from Plan 008/011/014/015/022: any field the actor or server claims must be covered by the canonical envelope to survive jsonb round-trip and support external audit."
+    impact: "Five envelope versions and backward-compat fallback logic in verify_event/replay; added implementation and test burden."
+    resolution: "Current envelope v4/v5 covers all fields; replay classifies version and falls back gracefully."
+
+  - id: "FINDING-04"
+    summary: "Actor role enforcement was initially audit-only (self-attested role in actor_metadata) and only later made opt-in enforceable via FR-24."
+    primary_class: "elicitation_gap"
+    contributing_classes: []
+    evidence_pointers:
+      - "spec.md BR-09: 'Authorization is enforced when actor roles are registered; audit-only when not.'"
+      - "spec.md §10 high-coupling decision: Actor→allowed_roles mapping decided, implemented as FR-24 (Phase 3)"
+      - "commit c8f240a: Implement Phase 3 — actor roles, replay resilience"
+      - "Plan 008 WS-1: strict_roles flag rejects unregistered actors"
+    earliest_reasonable_detection_stage: "elicitation / threat-modeling (the operator's trust boundary for role misdeclaration was not resolved in v1)."
+    hindsight_information: "Homelab single-operator context made audit-only acceptable for MVP; multi-actor pipelines would have been unprotected until FR-24."
+    impact: "BR-09 remained a known risk across Phase 1/2; closed in Phase 3 with opt-in actor_roles table."
+    resolution: "FR-24 implemented; Plan 008 adds strict_roles mode for higher-assurance deployments."
+
+  - id: "FINDING-05"
+    summary: "Replay produced spurious drift/halt under concurrent writes because it ran at READ COMMITTED instead of a snapshot isolation level."
+    primary_class: "decomposition_gap"
+    contributing_classes: ["implementation_error"]
+    evidence_pointers:
+      - "CHANGELOG.md [Unreleased] BC-310: Replay now runs at REPEATABLE READ isolation"
+      - "spec.md §17.1: 'Replay (FR-16) is the sole exception: it runs at REPEATABLE READ'"
+      - "AGENTS.md: ConnectionManager.transaction_repeatable_read()"
+    earliest_reasonable_detection_stage: "work_decomposition / verification layer design"
+    hindsight_information: "Reading the live projection while events are being appended can interleave new rows; hindsight available once concurrency tests exercised replay under load."
+    impact: "False-positive drift/halt reports; spec amended to carve out the REPEATABLE READ exception."
+    resolution: "Replay uses REPEATABLE READ; mutating transactions remain READ COMMITTED."
+
+  - id: "FINDING-06"
+    summary: "Cross-work-item ordering was missing until global_seq and the global hash chain were added to support batch timestamping and non-repudiation."
+    primary_class: "decomposition_gap"
+    contributing_classes: ["translation_gap"]
+    evidence_pointers:
+      - "Plan 014-global-event-seq.md: resolves BC-231 (per-WI event_seq makes batching incoherent)"
+      - "CHANGELOG.md v0.3.0: Plan 014 global_seq BIGSERIAL; Plan 015 envelope v3 with prev_event_hash"
+      - "commit b19e6bd: global event hash chain and event_chain_head verification"
+      - "spec.md §5 FR-03: global_seq and prev_global_event_hash fields"
+    earliest_reasonable_detection_stage: "spec synthesis when timestamping/anchoring requirements were added"
+    hindsight_information: "Batch timestamping needs a monotonic cross-work-item sequence to prove event ranges are covered."
+    impact: "Schema migration 017/018 and replay verification rewrite; additive, backward-compatible."
+    resolution: "global_seq allocated per event; replay verifies global hash chain via event_chain_head."
+
+  - id: "FINDING-07"
+    summary: "claim attempt_number was reset in the projection after claim release because the WorkItem dataclass silently discarded it."
+    primary_class: "implementation_error"
+    contributing_classes: []
+    evidence_pointers:
+      - "commit 1424d5f BC-054: persist attempt_number on work_items_current"
+      - "CHANGELOG.md v0.1.0: 'Key fixes: claim zombie revival prevention (BC-071)...'"
+    earliest_reasonable_detection_stage: "unit tests for claim lifecycle / auto-steal (implementation verification)"
+    hindsight_information: "The SQL already fetched attempt_number; the dataclass dropped it."
+    impact: "Auto-steal would restart attempt counting, breaking escalation and audit history."
+    resolution: "Added attempt_number field to WorkItem dataclass; both backends persist it."
+
+  - id: "FINDING-08"
+    summary: "Heartbeat claim_heartbeat events were coalesced within max(60s, ttl/2), requiring replay drift detection to tolerate the coalescing window."
+    primary_class: "implementation_error"
+    contributing_classes: ["translation_gap"]
+    evidence_pointers:
+      - "CHANGELOG.md v0.1.1 BC-194: heartbeat coalescing"
+      - "spec.md §17.10: heartbeat coalescing threshold"
+      - "AGENTS.md line 288: heartbeat_claim coalesces events"
+    earliest_reasonable_detection_stage: "implementation / replay verification design"
+    hindsight_information: "Coalescing avoids event-log noise but means event stream does not contain every heartbeat."
+    impact: "Minor spec amendment and replay tolerance logic; avoids false drift."
+    resolution: "Replay tolerates claim_expires_at deltas within coalesce threshold."
+
+  - id: "FINDING-09"
+    summary: "Schema-per-project replaced the original DB-per-project isolation model to avoid per-project connection pools while keeping engine-enforced isolation."
+    primary_class: "translation_gap"
+    contributing_classes: []
+    evidence_pointers:
+      - "spec.md §10 high-coupling decision (v4): 'Isolation model updated: schema-per-project...'"
+      - "spec.md BR-13: per-project schema isolation is load-bearing; migration path documented"
+      - "AGENTS.md: SET LOCAL search_path per transaction"
+    earliest_reasonable_detection_stage: "architecture design / high-coupling decision table"
+    hindsight_information: "Homelab scale favors shared DB with schema isolation; tenant_id-in-shared-schema path reserved for growth."
+    impact: "Spec v4 update; connection and migration logic changed; PgBouncer session-mode constraint documented."
+    resolution: "One Postgres database, one schema per project, shared connection pool."
+
+effective_controls:
+  - control: "Public API surface formalized (§19) prevented Postgres internals from leaking across the library boundary."
+    evidence_pointers:
+      - "spec.md §19: protocol not Postgres connection; library is sole signer"
+      - "AC-34: static inspection forbids exposing connection/cursor/ORM/migration objects"
+      - "AGENTS.md: 'Regista class is the sole entry point. No Postgres internals leak across the boundary.'"
+    observed_effect: "Service wrappers and sidecar remain thin HTTP translations; schema changes do not require consumer rewrites."
+
+  - control: "API-layer idempotency via client-supplied event_id and UNIQUE(event_id) index."
+    evidence_pointers:
+      - "spec.md BR-12 / AC-24"
+      - "commit fbd28f0 _events.py idempotency logic"
+      - "CHANGELOG.md v0.1.0: 'Cross-partition event_id uniqueness (BC-148)'"
+    observed_effect: "Retry across transient DB failures is safe; duplicate event_id returns original result deterministically."
+
+  - control: "Replay with drift detection (FR-16) catches projection bugs and out-of-band writes."
+    evidence_pointers:
+      - "spec.md FR-16 / AC-27 / AC-29"
+      - "commit 6bae47a: Resolve breadcrumbs including replay integrity"
+    observed_effect: "Multiple projection and ordering bugs (BC-054, BC-147, etc.) were found because replay compared live state to event-log reconstruction."
+
+  - control: "Vendored rfc8785 module (Plan 008 WS-3) removed PyPI supply-chain risk for canonicalization."
+    evidence_pointers:
+      - "CHANGELOG.md v0.2.0: WS-3 vendored rfc8785 0.1.4"
+      - "AGENTS.md: vendored dependencies in src/regista/_vendor/"
+      - "tests test_rfc8785_vendor.py (73 cross-validation tests)"
+    observed_effect: "Signature canonicalization no longer depends on external package upgrades."
+
+  - control: "Single-source-of-truth backend contract (_contract.py) plus property-based conformance tests."
+    evidence_pointers:
+      - "commit 154a56d RFC-062"
+      - "tests/test_property_conformance.py"
+      - "AGENTS.md: 'Property-based testing: hypothesis-driven conformance tests verify both backends behave identically'"
+    observed_effect: "InMemory/Postgres parity divergences are caught by shared tests rather than per-backend bug sweeps."
+
+  - control: "Breadcrumb discipline and adversarial review cycles caught critical/high issues before merge."
+    evidence_pointers:
+      - "CHANGELOG.md v0.1.0: 188 breadcrumbs resolved"
+      - "commit 087ecee: critical/high bug sweep + adversarial review fixes"
+      - ".regista/ worklogs and reflections"
+    observed_effect: "Recurring batches of BC fixes show the process surfaced and tracked defects across correctness, security, and conformance dimensions."
+
+implementation_questions:
+  - question: "Which fields must be covered by the canonical signing envelope to support non-repudiation and cross-Postgres-version verification?"
+    answer_source: "spec"
+    should_have_been_resolved_at: "spec synthesis (Level 3)"
+  - question: "How should the system behave when a key is revoked after it signed historical events?"
+    answer_source: "spec"
+    should_have_been_resolved_at: "spec synthesis (Phase 3)"
+  - question: "Should actor role enforcement be opt-in or mandatory, and how does it remain backward-compatible?"
+    answer_source: "spec"
+    should_have_been_resolved_at: "elicitation / threat-modeling"
+  - question: "What is the migration path when schema-per-project no longer scales?"
+    answer_source: "spec"
+    should_have_been_resolved_at: "architecture design"
+  - question: "How are plaintext HMAC keys protected in process memory and at rest?"
+    answer_source: "repository"
+    should_have_been_resolved_at: "elicitation / security review"
+  - question: "How do cross-project value-references avoid cross-schema coupling while remaining verifiable?"
+    answer_source: "spec"
+    should_have_been_resolved_at: "spec synthesis (Plan 022)"
+
+candidate_lessons:
+  - "Formalizing the public API boundary early (protocol, not DB) lets the schema evolve without breaking consumers."
+  - "Reusing event_id as the idempotency key avoids a separate idempotency table and aligns with the event-sourcing model."
+  - "A shared backend-contract module plus property-based conformance tests prevents dual-backend divergence."
+  - "Replay must run under snapshot isolation; otherwise concurrent writes create false drift."
+  - "Signing envelopes should cover all integrity-relevant fields from the first version; expanding them later requires version fallback complexity."
+  - "Trusted, self-attested roles need an explicit opt-in enforcement point or the threat model must document audit-only operation."
+
+counterevidence:
+  - "Regista succeeded without a factory gate, relying on human-in-the-loop adversarial review; so 'factory gate' is not a universal requirement."
+  - "Cert-watch-3/8 reached factory completion with a test gate rather than shared backend contract, showing different archetypes need different controls."
+  - "The strict public API rule required explicit AC-34 enforcement; smaller projects may not need such a boundary."
+  - "Vendoring rfc8785 adds maintenance burden; other projects may accept PyPI risk or pin hashes."
+  - "Formalizing every signing-envelope field at synthesis would have slowed MVP delivery for the homelab use case; iterative amendment was acceptable."

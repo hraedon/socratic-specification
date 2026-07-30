@@ -60,7 +60,12 @@ class PlumbingError(Exception):
 @dataclass(frozen=True)
 class Declaration:
     remote_owner: str
-    author_email: str
+    # One or more expected author identities. A list is not a convenience: a repo
+    # with real history legitimately carries several (a web-UI commit lands as
+    # <user>@users.noreply.github.com, a CI bot has its own address), and the
+    # check covers every commit in the push range, not just the tip. A
+    # single-identity field would force either a false refusal or no check at all.
+    author_emails: tuple[str, ...]
     visibility: Visibility
 
 
@@ -83,7 +88,9 @@ def load_declaration(repo_root: Path) -> Declaration | None:
     if not isinstance(section, dict):
         raise PlumbingError(f"{DECLARATION_FILENAME} has no [publication] table")
 
-    missing = [k for k in ("remote_owner", "author_email", "visibility") if k not in section]
+    missing = [
+        k for k in ("remote_owner", "author_email", "visibility") if k not in section
+    ]
     if missing:
         raise PlumbingError(
             f"{DECLARATION_FILENAME} [publication] is missing: {', '.join(missing)}"
@@ -97,9 +104,20 @@ def load_declaration(repo_root: Path) -> Declaration | None:
             f"{DECLARATION_FILENAME} declares visibility={raw_visibility!r}; "
             f"expected one of {[v.value for v in Visibility]}"
         ) from exc
+    raw_authors = section["author_email"]
+    authors = (
+        tuple(str(a) for a in raw_authors)
+        if isinstance(raw_authors, list)
+        else (str(raw_authors),)
+    )
+    if not authors or not all(a.strip() for a in authors):
+        raise PlumbingError(
+            f"{DECLARATION_FILENAME} author_email must be a non-empty address "
+            f"or list of addresses"
+        )
     return Declaration(
         remote_owner=str(section["remote_owner"]),
-        author_email=str(section["author_email"]),
+        author_emails=authors,
         visibility=visibility,
     )
 
@@ -120,10 +138,25 @@ def parse_remote_owner(url: str) -> str | None:
     return match.group(1)
 
 
+def _resolve_exe(name: str) -> str:
+    """Absolute path to *name*, or raise PlumbingError.
+
+    Invoking a bare executable name resolves through PATH, which is both a lint
+    finding (ruff S607, selected by several repos in this estate) and a real
+    ambiguity for a guard: the whole point is a deterministic check. Resolving up
+    front also turns "git is missing" into a clean refusal instead of an OSError
+    surfacing from deep inside a subprocess call.
+    """
+    path = shutil.which(name)
+    if path is None:
+        raise PlumbingError(f"{name} is not available on PATH")
+    return path
+
+
 def git_output(args: list[str], repo_root: Path) -> str:
     try:
         result = subprocess.run(
-            ["git", "-C", str(repo_root), *args],
+            [_resolve_exe("git"), "-C", str(repo_root), *args],
             capture_output=True,
             text=True,
             check=True,
@@ -158,11 +191,12 @@ def remote_visibility(owner: str, repo: str) -> str | None:
     stay possible. The caller warns rather than blocks in that case and says so,
     because a guard that silently cannot check is worse than one that admits it.
     """
-    if shutil.which("gh") is None:
+    gh = shutil.which("gh")
+    if gh is None:
         return None
     try:
         result = subprocess.run(
-            ["gh", "repo", "view", f"{owner}/{repo}", "--json", "visibility"],
+            [gh, "repo", "view", f"{owner}/{repo}", "--json", "visibility"],
             capture_output=True,
             text=True,
             check=True,
@@ -213,12 +247,15 @@ def check(
         )
 
     emails = author_emails_in_range(repo_root, rev_range)
-    unexpected = [e for e in emails if e.lower() != declaration.author_email.lower()]
+    allowed = {a.lower() for a in declaration.author_emails}
+    unexpected = [e for e in emails if e.lower() not in allowed]
     if unexpected:
+        declared = ", ".join(repr(a) for a in declaration.author_emails)
         problems.append(
             f"author identity mismatch: {', '.join(unexpected)} in the commits being "
-            f"pushed, but {DECLARATION_FILENAME} declares {declaration.author_email!r}. "
-            f"Fix with: git commit --amend --reset-author (or rebase to correct history)."
+            f"pushed, but {DECLARATION_FILENAME} declares {declared}. Fix with: "
+            f"git commit --amend --reset-author (or rebase to correct history). If the "
+            f"identity is legitimate, add it to author_email."
         )
 
     match declaration.visibility:

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
-
+from jsonschema.exceptions import SchemaError
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,6 +24,14 @@ def validate(path: Path, schema_path: Path) -> list[str]:
 def main() -> int:
     errors: list[str] = []
     case_schema = ROOT / "evals/case.schema.json"
+    run_schema = ROOT / "evals/run.schema.json"
+    for schema_path in (case_schema, run_schema):
+        try:
+            Draft202012Validator.check_schema(
+                json.loads(schema_path.read_text(encoding="utf-8"))
+            )
+        except (OSError, json.JSONDecodeError, SchemaError) as exc:
+            errors.append(f"{schema_path}: invalid schema: {exc}")
     case_ids: set[str] = set()
     for path in sorted((ROOT / "evals/cases").glob("*.yaml")):
         errors.extend(validate(path, case_schema))
@@ -32,6 +40,10 @@ def main() -> int:
         if case_id in case_ids:
             errors.append(f"{path}: duplicate case ID {case_id}")
         case_ids.add(case_id)
+        for field in ("expected_obligations", "anti_obligations"):
+            item_ids = [item.get("id") for item in data.get(field, [])]
+            if len(set(item_ids)) != len(item_ids):
+                errors.append(f"{path}: duplicate IDs in {field}")
 
     registry_path = ROOT / "extensions/index.yaml"
     errors.extend(validate(registry_path, ROOT / "schemas/extension-registry-v1.schema.json"))

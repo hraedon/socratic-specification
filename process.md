@@ -16,14 +16,14 @@ Even a complete spec will encounter conditions that weren't anticipated. The goa
 
 **Human**
 - Writes the initial vibe spec at whatever quality level they can manage
-- Declares a desired spec level
+- States delivery or assurance needs in ordinary language; choosing a numbered spec level is optional
 - Confirms or corrects the opening restatement
 - Answers questions in their own domain language — no technical knowledge required
 - Makes decisions when presented with options and trade-offs
 - Confirms termination
 
 **AI Partner**
-- Assesses current and target spec level honestly, including pushing back when desired level is unachievable
+- Recommends the appropriate target level from delivery risk and assurance needs, including pushing back when a requested level is unachievable
 - Produces the opening restatement
 - Drives the iteration loop: asks questions in domain language, translates answers into technical requirements, states assumptions, flags conflicts, identifies high-coupling decisions
 - Declares diminishing returns with explicit reasoning
@@ -51,20 +51,20 @@ Level definitions are principle-based, not gate-based. The goal is a spec that s
 |---|---|---|
 | **1** | Implementable | Full happy path specified. Explicit assumptions recorded. Testable behaviors have acceptance criteria. Untestable items labeled with rationale. Major failure modes identified. High-coupling decisions classified. |
 | **2** | Verifiable | All of Level 1. Edge cases enumerated with test criteria. NFRs derived from domain-language answers and stated as concrete, measurable values. Integration points described at the level of detail available. Full failure mode coverage. |
-| **3** | Complete | All of Level 2. No open questions, or all remaining open questions classified as: unknowable / needs research / indifferent / cheap-to-change. Scope explicitly bounded. No implementation decision left to agent discretion. |
+| **3** | Complete | All of Level 2. No unresolved intent or high-coupling product decisions; any remaining open questions are classified as unknowable / needs research / indifferent / cheap-to-change. Scope explicitly bounded. Implementation mechanisms may remain within agent discretion unless they affect a stated constraint. |
 
 ### Desired Level vs. Target Level
 
-- **Desired level** — declared by the human at the start
-- **Target level** — assessed by the AI based on what is actually achievable given current knowns
+- **Desired level** — optional; derived from an explicit human request or ordinary-language delivery and assurance needs
+- **Target level** — recommended by the AI based on risk and what is achievable from current knowns
 
-These may differ. When they do, the AI states the gap directly and specifically before any elicitation begins:
+Do not make a user learn this level system before describing their problem. If they do not request a level, recommend one and proceed after the opening restatement. When desired and target levels differ, state the gap directly and specifically before elicitation begins:
 
 > *"You've asked for Level 3. This is currently a Level 1 because the authorization model is undefined and the data source is ambiguous. Level 2 is achievable if you can answer two questions. Level 3 requires a decision you may not be able to make before implementation."*
 
 The AI does not soften this assessment. The human may accept a lower target, provide the missing information, or defer decisions with explicit acknowledgment of the cost.
 
-Even when the human asks for Level 1, the AI always produces a description of what would be needed to reach Level 2. This keeps the ceiling visible and the conversation productive.
+When Level 1 is the target, record the concrete delta to Level 2 in the artifact. Do not add a separate conversation round unless the human asks to explore it.
 
 ---
 
@@ -86,13 +86,11 @@ If no (e.g., a single aspirational sentence with no grounding): ask up to three 
 
 Once orientation answers exist, proceed to mode detection.
 
-**Mode detection:** The AI reads the vibe spec for signals that indicate one or more process extensions should be activated. It declares its selection before the restatement:
+**Mode detection:** The AI reads the vibe spec for signals that indicate one or more process extensions should be activated. It includes the detected mode in the opening restatement rather than requiring a separate confirmation round:
 
-> *"This sounds like a [mobile app / data pipeline / etc.]. I'll include [mobile-specific / etc.] questions alongside the standard ones. If that's not right, correct me before we continue."*
+> *"This sounds like a [mobile app / data pipeline / etc.], so I will include [mobile-specific / etc.] concerns. If that or the goal summary below is wrong, correct me."*
 
-The human confirms or corrects. A wrong mode detection is treated the same as a restatement failure — it signals ambiguity that will recur. See **Process Extensions** for available extensions and their activation signals.
-
-Once mode is confirmed, proceed to Step 1.
+A corrected mode is treated like a restatement correction because it signals ambiguity that may recur. See **Process Extensions** for activation signals. Proceed to Step 1 and confirm mode and intent together.
 
 ---
 
@@ -128,11 +126,11 @@ With confirmed intent, the AI:
 
 1. Assigns the current spec level (1, 2, or 3) with specific justification
 2. Identifies the target level (highest achievable given current knowns)
-3. Compares to the human's desired level
-4. If desired > target: states blockers explicitly and offers a path to close the gap
+3. If the human requested a level, compares it with the target
+4. If requested > target: states blockers explicitly and offers a path to close the gap
 5. Identifies all high-coupling decisions present in the spec (see Step 4 below)
 
-This assessment is shown to the human before elicitation begins.
+Keep the full assessment in working state. Show the human a concise version only when it changes what must be answered, reveals a requested-level gap, or exposes a high-coupling decision. A routine internal level label does not justify another confirmation round.
 
 ---
 
@@ -144,26 +142,30 @@ Repeat until target level is reached or diminishing returns are declared.
 
 1. **Prioritize gaps** by implementation risk. Address what would block or break implementation before addressing what would merely improve it.
 
-2. **Ask or assume.** For each gap:
-   - If high-stakes: ask a targeted question in domain language. Generic technical questions ("what are your performance requirements?") are not acceptable. Questions must be grounded in the human's specific context ("if this report takes a minute to generate, does that block your team or is that fine?").
-   - If low-stakes: state an explicit assumption and move on. A gap is low-stakes if getting it wrong requires changing fewer than ~3 isolated implementation decisions and does not touch a high-coupling decision.
+2. **Resolve from evidence before asking.** Check the vibe spec, prior answers, supplied documents, and accessible repository or environment evidence first. Record facts with the appropriate provenance. Never ask the human to repeat a fact that is already available. If sources conflict, ask about the conflict rather than asking the original question again.
 
-3. **Confirm translations.** When a domain-language answer is translated into a technical requirement, show the translation in plain language before recording it:
+3. **Ask, propose, or assume.** For each unresolved gap:
+   - If it is a high-stakes intent or trade-off decision only the human can make, ask one targeted question in domain language. Prefer questions that resolve several linked gaps at once. Generic technical questions ("what are your performance requirements?") are not acceptable.
+   - If evidence supports a likely answer but a high-stakes decision still needs consent, propose the answer and ask for correction instead of asking an open-ended question.
+   - If low-stakes, state an explicit assumption and move on. Use the Assumption Thresholds below; implementation size alone does not make a question human-owned.
+   - If it is an implementation mechanism the implementing agent can decide later, do not ask or turn it into an intent requirement.
+
+4. **Confirm translations proportionally.** Confirm translations immediately when they create a measurable user-visible threshold, scope boundary, irreversible commitment, or high-coupling decision:
    > *"You said it should feel instant — I've taken that to mean under half a second. Does that match what you meant, or would a few seconds be acceptable?"*
-   The human validates the translation in their own terms; the technical value is what gets confirmed. Do not silently record technical derivations.
+   Group low-risk derived details into the next summary or decision brief for correction. Do not require a separate yes/no exchange for every derived field, and do not silently record a consequential derivation.
 
-4. **Handle "I don't know."** When a human doesn't know how to answer a forced choice, the AI presents 2-3 concrete options with plain-language trade-offs expressed as outcomes the human will experience, not technology choices. The AI also explicitly invites domain input:
+5. **Handle "I don't know."** When a human doesn't know how to answer a forced choice, the AI presents 2-3 concrete options with plain-language trade-offs expressed as outcomes the human will experience, not technology choices. The AI also explicitly invites domain input:
    > *"There may be options I haven't listed — if you have a preference or constraint from your industry or context, say so and we'll work from there."*
    The human may choose an option, provide their own, or defer with explicit classification.
 
-5. **Batch questions.** Ask no more than 3 questions per round, ordered by priority. Humans answer focused sets better than exhaustive lists.
+6. **Batch questions.** Ask no more than 3 questions per round and default to 1-2. Order by decision impact and expected information gain, not template order. Do not fill the batch merely because capacity remains.
 
-6. **Build the glossary.** The first time a domain-specific term is introduced — by either party — record it with its agreed definition. If a term appears to shift meaning across rounds, surface the discrepancy and agree on a canonical definition before proceeding:
+7. **Build the glossary.** The first time a domain-specific term is introduced — by either party — record it with its agreed definition. If a term appears to shift meaning across rounds, surface the discrepancy and agree on a canonical definition before proceeding:
    > *"You've used 'customer' and 'user' — are these the same person or different roles?"*
 
-7. **Elicit MVP definition.** Once functional requirements are substantially sketched (typically after round 1 or 2), ask once:
+8. **Elicit MVP definition.** Once functional requirements are substantially sketched (typically after round 1 or 2), use any priority already stated in the vibe spec or answers to propose an MVP for correction. If no priority is available, ask once:
    > *"If you could only ship the most essential part of this first — the version that would already be genuinely useful — what would that be?"*
-   Record which FRs the human identifies as MVP and their rationale. If the human is unsure, ask what problem they most urgently need solved. Do not infer the MVP without human input.
+   Record the confirmed MVP FRs and rationale. If the human is unsure, ask what problem they most urgently need solved. Do not invent priorities, but do not ask the human to repeat a priority they already supplied.
 
    After the human declares MVP FRs, check them against the current high-coupling decisions. If any MVP FR has a significant architectural prerequisite — an auth system, a sync engine, a data model — that isn't itself in the MVP, surface it as a forced choice before recording:
    > *"[FR-X] needs [prerequisite] to exist first — that's not in your MVP as described. We can include it as invisible infrastructure (the user never sees it, but it has to be built), or we scope down to a version that doesn't need it yet. Which makes more sense?"*
@@ -176,24 +178,17 @@ Repeat until target level is reached or diminishing returns are declared.
 
    If any check is yes, that infrastructure is a prerequisite. Record it with a resolution (`invisible_infrastructure`, `scope_reduction`, or `deferred`). If all checks are no, record `architectural_prerequisites: []` explicitly. A silently empty prerequisites section is a spec defect — the check must be performed and the result recorded either way.
 
-8. **Flag specialized domains.** If the spec shows signals of a domain with compliance, regulatory, or safety requirements (healthcare, finance, legal, critical infrastructure), surface this in the conversation:
+9. **Flag specialized domains.** If the spec shows signals of a domain with compliance, regulatory, or safety requirements (healthcare, finance, legal, critical infrastructure), surface this in the conversation:
    > *"This sounds like it may touch [domain]. There are likely requirements in that space I'm not equipped to identify on my own. You may want a domain expert to review the spec before implementation."*
    Record this flag in the Open Questions section of the artifact.
 
-9. **Flag conflicts.** If a human's answer contradicts a prior answer or the original spec, surface the conflict explicitly before proceeding:
+10. **Flag conflicts.** If a human's answer contradicts a prior answer or the original spec, surface the conflict explicitly before proceeding:
    > *"This conflicts with [X] you said earlier. Which is correct, or do both need to be true?"*
    Unresolved conflicts are not papered over — they are recorded as open questions.
 
-10. **Check FR size.** Once functional requirements are substantially complete (typically after round 2), verify each is implementable by a single agent working in isolation. Flag an FR as oversized if it meets two or more of these conditions:
-    - Requires reading or modifying more than ~5 existing files
-    - Requires more than ~300 lines of new implementation code
-    - Calls more than one external system or subsystem (each external system counts as approximately +100 lines of orchestration complexity regardless of line count)
+11. **Check outcome boundaries.** Split an FR during elicitation only when it combines independently valuable user outcomes, contains conflicting scope choices, or cannot be confirmed as one coherent behavior. Do not estimate files or lines of code and do not ask the human to perform implementation decomposition. Codebase-grounded package size and agent context limits belong to the downstream work-plan gate.
 
-    An oversized FR is a reliability risk in agentic implementation: agents run out of context mid-task and produce incomplete or incorrect output with no visible error. Surface this to the human and propose a concrete split — the human decides, but the risk must be named before synthesis, not discovered at runtime.
-
-    This check is not about technical complexity alone. FR-02 "add a host for TLS scanning" may be only 3 acceptance criteria, but if it requires a network layer, a certificate parser, a database write, and error handling across all three — that is an oversized FR regardless of how it reads.
-
-11. **Re-assess level** after each round. Show the human the updated level and the delta to the next level.
+12. **Re-assess level** internally after each round. Tell the human only when the level changes, a blocker appears, a requested-level gap remains, or termination is being proposed. The artifact records the delta to the next level without requiring repeated status exchanges.
 
 ---
 
@@ -237,9 +232,9 @@ Before synthesis, the AI performs a full pass over all accumulated answers, assu
 - **Read-path symmetry** — for every data producer or event log the spec describes (scan history, alert log, audit trail), is there a stated consumer? *Symptom this catches: a `scan_history` table written by an automated job that no FR ever reads.*
 - **Configuration surface** — for every configurable behavior, is the spec explicit that it is deployment-configurable (without prescribing the mechanism)? *Symptom this catches: an `alert_email` field defined with no statement that the operator must be able to set it. The spec must say "the operator can set this"; it must not say "via env var SMTP_HOST".*
 
-**Cross-model audit requirement.** The composition checks must be verified by a mechanism independent of the elicitation AI's prose self-review. This is satisfied by the structural validation pass (`spec_tools.py validate --ready`), which parses the canonical YAML and checks referent integrity, lifecycle wiring, and read-path symmetry mechanically — the "structural symbol-reference parse" branch of the original requirement (commit 29e56c4). The elicitation AI performs the prose-level composition checks during elicitation; the structural parse is the independent verification that catches what self-review cannot. For factory-bound specs, an independent architectural review runs after spec synthesis as an additional cross-model backstop.
+**Independent audit boundary.** `spec_tools.py validate --ready` independently checks the structure it can know: schema conformance, identifier references, MVP/acceptance-criterion coverage, and readiness fields. It does **not** prove that prose describes every lifecycle edge or real read path. The elicitation AI performs those semantic composition checks, and factory-bound work receives a separate codebase-grounded architecture and coverage review. Until a machine-readable lifecycle or producer/consumer model exists, do not claim mechanical verification of those meanings.
 
-**Blocking requirement.** Composition gaps in MVP scope block synthesis. The AI must ask the human in domain language (per the translation table below) and record the answer as an AC before proceeding. Non-MVP gaps may be recorded as assumptions.
+**Blocking requirement.** Composition gaps in MVP scope block synthesis. Resolve facts from supplied context or inspectable evidence first. Ask the human in domain language only when the gap is an intent or trade-off decision, then record the answer as an AC. Non-MVP gaps may be recorded as assumptions.
 
 **Domain-language translation.** All composition-check questions must be translated into the human's terms before being asked, per the Step 3 domain-language principle. Reference table:
 
@@ -249,28 +244,26 @@ Before synthesis, the AI performs a full pass over all accumulated answers, assu
 | Read-path symmetry | "What consumer reads the `scan_history` table?" | "When something goes wrong with a scan, how does someone find out what happened? Do they see it on a screen, get notified, or only check if they go looking?" |
 | Configuration surface | "Where does `AlertConfig` come from at runtime?" | "When would someone first set the email address for alerts — is there a place for that in the app, or does someone configure it once when setting the system up?" |
 
-The audit produces an explicit output regardless of whether gaps are found:
-
-> *"Consistency and composition audit complete. I reviewed [N] requirements, [N] assumptions, [N] high-coupling decisions, [N] lifecycle items, [N] producer/consumer pairs, and [N] configuration surfaces. Structural validation: [passed / N issues found]. [No gaps found. / I found the following gaps that need resolution before synthesis: [list].]"*
-
-A clean audit explicitly states what was checked — it is never silent. This gives the human visibility into the audit's surface area and makes gaps attributable to scope rather than oversight. The audit does not claim to catch everything; it reports what it examined. Gaps in MVP scope must be resolved before synthesis proceeds.
+The audit records its checked counts and findings in working state so coverage is attributable rather than silent. Show the human only unresolved intent choices or conflicts. A clean internal audit does not need a permission-only conversation turn. After synthesis, run structural validation on the canonical YAML; automatically repair and revalidate machine-detectable defects unless they expose a human-owned decision.
 
 ---
 
 ### Step 6: Termination
 
-The AI declares diminishing returns when all remaining open questions fall into one of these categories:
+Stop eliciting when no unanswered question is expected to change MVP scope, externally visible behavior or contracts, safety or compliance obligations, or a high-coupling decision beyond the accepted risk. A question may remain resolvable when its expected value is lower than the cost of another human turn.
+
+Classify every remaining open question as:
 
 - **Unknowable** — cannot be resolved without implementation data or decisions outside the scope of this session
-- **Needs research** — can be resolved, but requires information not available in this session (distinguished from unknowable: this has an answer, it just isn't here yet)
+- **Needs research** — can be resolved, but requires information not available in this session
 - **Indifferent** — valid either way, low consequence
 - **Cheap to change** — low coupling, easily revised after the fact
 
-Declaration format:
+Default transition:
 
-> *"The remaining open questions cannot be resolved further in this session. Specifically: [list each with its category]. We have reached Level [N]. Proceed to synthesis?"*
+> *"I have enough to draft the decision brief and spec. The remaining items are [brief classified list]; none changes the current MVP beyond the recorded risk. I will synthesize now unless I have misunderstood a priority."*
 
-The human confirms before synthesis begins.
+Do not require a separate permission-only turn. The decision brief remains the normal final confirmation gate. Ask before synthesis only when the human has requested checkpoints or a remaining ambiguity could change what is built.
 
 ---
 
@@ -307,12 +300,13 @@ When NFRs or requirements materially constrain the technology options (e.g., a s
 
 ## Assumption Thresholds
 
-A gap is **low-stakes** (assume, don't ask) if all of the following are true:
-- Getting it wrong requires changing fewer than ~3 isolated implementation decisions
+A gap is **low-stakes** (assume, don't ask) when all of the following are true:
+- It does not change MVP scope or an externally visible behavior or contract
+- It does not affect safety, compliance, privacy, or another material harm boundary
 - It does not touch a high-coupling decision
-- The assumption is reasonable given the stated domain and context
+- Available evidence or a conventional default makes the assumption reasonable and cheap to revise
 
-All other gaps are **high-stakes** (ask).
+A gap is **high-stakes** only when a wrong answer can materially change one of those outcomes. Even then, ask the human only if evidence cannot resolve it and it is an intent or trade-off decision they own. Otherwise record a research task, accepted risk, or implementing-agent decision.
 
 Every assumption made during elicitation is recorded explicitly in the spec artifact's Assumptions section.
 
@@ -327,7 +321,7 @@ Every assumption made during elicitation is recorded explicitly in the spec arti
 **Revision:** [1..N]
 **Schema Version:** [2]
 **Spec Level:** [1 / 2 / 3]
-**Desired Level:** [what the human requested]
+**Desired Level:** [what the human requested, or "not requested"]
 **Date:** [date of synthesis]
 **Extensions active:** [None / Mobile / ...]
 
@@ -582,13 +576,13 @@ What would be required to reach Level [N+1]:
 The base process handles all project types. Extensions add mode-specific probes, high-coupling decisions, and artifact sections for project types with requirements the base process doesn't fully address.
 
 **How extensions work:**
-- Activated during Step 0 mode detection, declared explicitly, confirmed by the human
-- Add to the Step 4 high-coupling decisions checklist
-- Add probes to the Step 3 iteration loop
+- Activated during Step 0 mode detection and included in the combined opening restatement
+- Add candidate concerns to the Step 4 high-coupling decision review
+- Add candidate probes to the Step 3 iteration loop
 - Add sections to the Step 7 synthesis artifact
 - A project may activate more than one extension simultaneously
 
-Extensions are additive — they do not replace any part of the base process.
+Extensions are additive in obligations, not necessarily in human questions. Before elicitation, compile all active probes into one decision graph, deduplicate overlaps, satisfy nodes from evidence or safe defaults, and ask the smallest remaining set of human-owned decisions. Per-round width is not a substitute for a total attention budget; if extension composition would create a long interview, state the blocking decisions and defer lower-value probes.
 
 Extension governance and status live in `extensions/index.yaml`. New extensions use `extensions/extension.template.md`, meet the extensionhood/composition rules, and declare an empirical promotion bar. Pilot and proposed entries do not silently alter the stable process.
 
@@ -607,17 +601,13 @@ When a request changes a living repository or deployed system, activate the pilo
 
 #### Additional platform declaration
 
-Resolved before the goal restatement, as platform shapes everything downstream. Native vs. cross-platform is a business and maintenance decision as much as a technical one — probe for the underlying constraints before presenting the choice:
+Platform reach and distribution are product constraints and belong in the combined opening restatement when already stated. Ask only for missing constraints that materially affect delivery:
 
-- *"Will this be maintained by one person, a small team, or a larger organization?"*
-- *"Is it more important to have the smoothest possible experience on each device, or to build faster and maintain one codebase?"*
-- *"How quickly does this need to be ready, and is ongoing maintenance budget a concern?"*
+- Which users or managed devices must be supported: iOS, Android, or both?
+- Is distribution public through an app store, private/internal, or undecided?
+- Are there explicit schedule, maintenance-capacity, device-integration, or existing-team constraints?
 
-Use the answers to inform a plain-language recommendation before asking the human to decide. Then confirm:
-
-- iOS, Android, or both?
-- Native or cross-platform — with a specific recommendation and rationale based on the answers above
-- Distribution: App Store, Play Store, enterprise/internal, or TestFlight?
+Native versus cross-platform is normally an implementing-agent decision informed by those constraints. Present it to the human only when the choice changes a user-visible capability, delivery commitment, or accepted maintenance trade-off.
 
 #### Additional high-coupling decisions
 
@@ -625,7 +615,7 @@ Add these to the Step 4 checklist when the Mobile extension is active:
 
 | Decision | Why it's high-coupling |
 |---|---|
-| Platform (iOS / Android / cross-platform) | Shapes every UI, API, and tooling decision |
+| Platform reach and distribution (iOS / Android / both; public / private) | Determines supported users, device capabilities, and delivery constraints |
 | Offline and connectivity model | Determines state architecture and sync strategy |
 | Authentication pattern | Biometric, social login, Apple/Google sign-in, email — each has distinct UX and implementation implications |
 | Backend sync strategy | If there is a server: how data moves, how conflicts are resolved |
@@ -644,13 +634,13 @@ Ask these in domain language during the iteration loop:
 
 After functional requirements are established and before the pre-synthesis audit, the AI generates a Mermaid flowchart representing the navigation model: screens as nodes, user actions or transitions as labeled edges.
 
-**Complexity cap:** If the app has more than 8 screens, do not generate a single diagram. Break the flow into named sub-diagrams by logical section (e.g., Onboarding, Core Flow, Settings) and confirm each separately. A diagram that cannot be read comfortably will be rubber-stamped, not audited.
+**Complexity cap:** If the app has more than 8 screens, do not generate a single diagram. Break the flow into named sub-diagrams by logical section (e.g., Onboarding, Core Flow, Settings). Review them together in the decision brief unless one subflow contains a blocking ambiguity. A diagram that cannot be read comfortably will be rubber-stamped, not audited.
 
 Each diagram is presented with a specific walkthrough prompt — not "does this look right?" but:
 
 > *"Here's what I think [section] looks like to navigate. Walk through it as if you're a new user — start at the beginning and tell me if anything is missing, doesn't make sense, or goes somewhere unexpected."*
 
-Corrections are incorporated and the diagram is regenerated until confirmed. All confirmed sub-diagrams are included in the spec artifact as the authoritative navigation model for the implementing agent.
+Corrections are incorporated before final decision-brief confirmation. The resulting sub-diagrams are included in the spec artifact as the confirmed navigation model; do not create a separate confirmation loop for every diagram.
 
 Example structure (not content):
 

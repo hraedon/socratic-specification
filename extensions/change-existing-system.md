@@ -10,7 +10,7 @@ architecture and behavior.
 ## Activation
 
 Activate when the request names an existing repository, release, deployed system,
-or behavior to add, remove, repair, or alter. Confirm in domain language:
+or behavior to add, remove, repair, or alter. Include this in the combined opening restatement:
 
 > This is a change to an existing system. I will inspect what exists, identify
 > what the change touches, and make preservation, compatibility, and rollback
@@ -37,14 +37,18 @@ repository inspection and technical blast-radius discovery.
 
 ## Additional probes
 
-- "What works today that would be unacceptable to lose while making this change?"
-- "Do older saved records, exported files, or clients still need to work afterward?"
-- "If the change behaves badly after release, what is the safe way back?"
-- "Does anyone outside this repository rely on the thing being changed?"
+Inspect first, then present observed preservation and compatibility facts for correction. Ask only policy or intent that the repository cannot answer:
+
+- "I found [behaviors] protected by current tests. Which, if any, may deliberately change?"
+- "The repository contains [older formats/clients]. How long must they remain supported?"
+- "The current release path supports [recovery options]. Which outcome is acceptable if rollback is impossible?"
+- "I found these documented external consumers: [list]. Are there undisclosed consumers outside the repository?"
+
+Do not ask the human to enumerate code paths, tests, formats, or internal consumers.
 
 ## Repository-derived inputs
 
-Before synthesis, inspect and record:
+Immediately after activation and before detailed elicitation, inspect and record:
 
 - Baseline commit and release/state.
 - Existing tests, linters, budgets, and deployment checks.

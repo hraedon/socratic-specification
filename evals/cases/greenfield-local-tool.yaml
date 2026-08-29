@@ -5,6 +5,9 @@ purpose: Ensure a small project remains small while still closing the persistenc
 input:
   vibe_spec: I want a little desktop tool that remembers which plants I watered and shows what needs water today. It is just for me.
   available_context: []
+attention_budget:
+  maximum_human_questions: 4
+  rationale: A small personal tool needs only core behavior and persistence decisions.
 expected_obligations:
   - id: OB-01
     severity: critical

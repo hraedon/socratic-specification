@@ -7,6 +7,9 @@ input:
   available_context:
     - Collection runs on Windows with an older shell runtime.
     - Analysis is developed on Linux.
+attention_budget:
+  maximum_human_questions: 3
+  rationale: Runtime and mutation facts are supplied; only unresolved data-policy choices need human input.
 expected_obligations:
   - id: OB-01
     severity: critical

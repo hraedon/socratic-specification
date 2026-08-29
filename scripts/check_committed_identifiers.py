@@ -366,31 +366,31 @@ def leaked_tracked_files(paths: list[Path], guarded: frozenset[str]) -> list[Pat
     return [p for p in paths if p.parts and p.parts[0] in guarded]
 
 
-def _resolve_identifiers() -> frozenset[str] | None:
-    """Return the configured denylist, or None if the gate should no-op.
+def _resolve_identifiers(*, required: bool = False) -> frozenset[str] | None:
+    """Return the configured denylist, or None when an optional gate should no-op.
 
-    Shared by the message-scanning modes so they honor exactly the same
-    configured/unconfigured semantics as the tracked-tree scan.
+    CI passes ``required=True`` so a missing or unusable secret blocks publication.
+    Local hooks keep the optional behavior so a fresh clone is not bricked.
     """
     raw = os.environ.get("SOCRATIC_SPECIFICATION_FORBIDDEN_IDENTIFIERS", "")
     if not raw.strip():
-        # Split so the line still fits at 100 columns after the per-repo env-var
-        # substitution: the longest name in the estate is 52 characters, 19 more
-        # than the canonical one, which pushed this over the limit in two repos.
-        print(
+        message = (
             "SOCRATIC_SPECIFICATION_FORBIDDEN_IDENTIFIERS is empty or unset; "
-            "skipping identifier gate.",
-            file=sys.stderr,
+            "identifier gate cannot run."
         )
+        if required:
+            raise GateError(message)
+        print(f"{message} Skipping optional gate.", file=sys.stderr)
         return None
     identifiers = parse_identifier_set(raw)
     if not identifiers:
-        print(
+        message = (
             "SOCRATIC_SPECIFICATION_FORBIDDEN_IDENTIFIERS contained no usable "
-            f"identifiers (minimum length is {MIN_IDENTIFIER_LENGTH} "
-            "characters); skipping gate.",
-            file=sys.stderr,
+            f"identifiers (minimum length is {MIN_IDENTIFIER_LENGTH} characters)"
         )
+        if required:
+            raise GateError(message)
+        print(f"{message}; skipping optional gate.", file=sys.stderr)
         return None
     return identifiers
 
@@ -408,9 +408,9 @@ def _report_message_violations(label: str, violations: list[Violation]) -> None:
     )
 
 
-def _scan_message_file(path: Path) -> int:
+def _scan_message_file(path: Path, *, require_denylist: bool = False) -> int:
     """commit-msg hook mode: scan the proposed commit message."""
-    identifiers = _resolve_identifiers()
+    identifiers = _resolve_identifiers(required=require_denylist)
     if identifiers is None:
         return 0
     try:
@@ -427,9 +427,9 @@ def _scan_message_file(path: Path) -> int:
     return 0
 
 
-def _scan_rev_range(rev_range: str) -> int:
+def _scan_rev_range(rev_range: str, *, require_denylist: bool = False) -> int:
     """pre-push mode: scan every commit message about to be published."""
-    identifiers = _resolve_identifiers()
+    identifiers = _resolve_identifiers(required=require_denylist)
     if identifiers is None:
         return 0
     failed = False
@@ -443,9 +443,11 @@ def _scan_rev_range(rev_range: str) -> int:
 
 def _run(args: argparse.Namespace) -> int:
     if args.message_file is not None:
-        return _scan_message_file(Path(args.message_file))
+        return _scan_message_file(
+            Path(args.message_file), require_denylist=args.require_denylist
+        )
     if args.rev_range is not None:
-        return _scan_rev_range(args.rev_range)
+        return _scan_rev_range(args.rev_range, require_denylist=args.require_denylist)
 
     paths = collect_staged_paths() if args.staged else collect_tracked_paths()
 
@@ -465,27 +467,9 @@ def _run(args: argparse.Namespace) -> int:
         return 1
 
     # 2. Secret-driven: scan tracked text files (outside guarded dirs) for
-    #    forbidden identifiers. No-op until the secret is configured.
-    raw = os.environ.get("SOCRATIC_SPECIFICATION_FORBIDDEN_IDENTIFIERS", "")
-    if not raw.strip():
-        # Split so the line still fits at 100 columns after the per-repo env-var
-        # substitution: the longest name in the estate is 52 characters, 19 more
-        # than the canonical one, which pushed this over the limit in two repos.
-        print(
-            "SOCRATIC_SPECIFICATION_FORBIDDEN_IDENTIFIERS is empty or unset; "
-            "skipping identifier gate.",
-            file=sys.stderr,
-        )
-        return 0
-
-    identifiers = parse_identifier_set(raw)
-    if not identifiers:
-        print(
-            "SOCRATIC_SPECIFICATION_FORBIDDEN_IDENTIFIERS contained no usable "
-            f"identifiers (minimum length is {MIN_IDENTIFIER_LENGTH} "
-            "characters); skipping gate.",
-            file=sys.stderr,
-        )
+    #    forbidden identifiers. Local use is optional; CI requires configuration.
+    identifiers = _resolve_identifiers(required=args.require_denylist)
+    if identifiers is None:
         return 0
 
     scan_paths = [p for p in paths if not any(part in _SKIP_DIRS for part in p.parts)]
@@ -518,6 +502,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Scan only staged files (for the pre-commit hook) instead of the "
         "full tracked tree (the CI default).",
+    )
+    parser.add_argument(
+        "--require-denylist",
+        action="store_true",
+        help="Fail closed when the denylist is missing or has no usable entries (for CI).",
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(

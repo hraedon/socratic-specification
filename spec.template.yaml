@@ -24,7 +24,7 @@ meta:
   revision: 1                     # [REQUIRED] Increment when confirmed intent changes
   parent_fingerprint: null        # Fingerprint of the prior canonical spec, or null for the first
   spec_level: 1                   # [REQUIRED] Achieved level: 1, 2, or 3
-  desired_level: 1                # [REQUIRED] Level requested by the human
+  desired_level: null             # Optional human request; null when the AI recommends the target
   date: ""                        # [REQUIRED] ISO 8601 date of synthesis
   extensions: []                  # Active extensions, e.g. ["mobile"]
 

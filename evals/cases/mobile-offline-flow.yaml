@@ -5,6 +5,9 @@ purpose: Verify Mobile activation, offline semantics, permissions, and readable 
 input:
   vibe_spec: I want a phone app for volunteers to photograph damaged trail signs and submit reports when they get back into coverage.
   available_context: []
+attention_budget:
+  maximum_human_questions: 5
+  rationale: Offline, permission, platform reach, and recovery choices justify a short focused interview.
 expected_obligations:
   - id: OB-01
     severity: critical
@@ -23,5 +26,5 @@ expected_obligations:
     rationale: Capture, review, queue, retry, and completion form a spatial lifecycle.
 anti_obligations:
   - id: ANTI-01
-    anti_obligation: Select native or cross-platform without first asking about platform, maintenance, and delivery constraints.
-    rationale: The choice is a business tradeoff presented through technical options.
+    anti_obligation: Require the human to select native or cross-platform when no product constraint makes that choice externally consequential.
+    rationale: The human supplies supported platforms and delivery constraints; the implementing agent normally selects the mechanism.

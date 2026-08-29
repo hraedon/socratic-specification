@@ -28,7 +28,7 @@
       "properties": {
         "artifact_path": {"type": "string", "minLength": 1},
         "artifact_kind": {"enum": ["spec", "change_spec"]},
-        "artifact_fingerprint": {"type": "string", "minLength": 1},
+        "artifact_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
         "repository": {"type": "string", "minLength": 1},
         "base_commit": {"type": "string", "minLength": 1},
         "head_commit": {"type": "string", "minLength": 1},
@@ -58,7 +58,19 @@
       "properties": {
         "target_value_phase": {"type": "integer", "minimum": 0},
         "intent_ids": {"type": "array", "items": {"$ref": "#/$defs/intentId"}, "minItems": 1, "uniqueItems": true},
-        "architectural_prerequisites": {"type": "array", "items": {"type": "object"}},
+        "architectural_prerequisites": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["description", "source", "work_package_ids"],
+            "properties": {
+              "description": {"type": "string", "minLength": 1},
+              "source": {"type": "string", "minLength": 1},
+              "work_package_ids": {"type": "array", "items": {"$ref": "#/$defs/workPackageId"}, "minItems": 1, "uniqueItems": true}
+            },
+            "additionalProperties": false
+          }
+        },
         "value_build_conflicts": {"type": "array", "items": {"type": "object"}}
       },
       "additionalProperties": false
@@ -83,7 +95,8 @@
             },
             "additionalProperties": false
           },
-          "verification_ids": {"type": "array", "items": {"$ref": "#/$defs/verificationId"}, "minItems": 1, "uniqueItems": true}
+          "verification_ids": {"type": "array", "items": {"$ref": "#/$defs/verificationId"}, "minItems": 1, "uniqueItems": true},
+          "source_preserved_behavior_ids": {"type": "array", "items": {"type": "string", "pattern": "^PRESERVE-[0-9]+$"}, "uniqueItems": true}
         },
         "additionalProperties": false
       }
@@ -96,7 +109,7 @@
         "properties": {
           "id": {"$ref": "#/$defs/contractId"},
           "name": {"type": "string", "minLength": 1},
-          "invariant_ids": {"type": "array", "items": {"$ref": "#/$defs/invariantId"}, "uniqueItems": true},
+          "invariant_ids": {"type": "array", "items": {"$ref": "#/$defs/invariantId"}, "minItems": 1, "uniqueItems": true},
           "change": {"type": "string", "minLength": 1},
           "authority": {"type": "string", "minLength": 1},
           "consumers": {
@@ -124,9 +137,38 @@
       "properties": {
         "required": {"type": "boolean"},
         "rationale": {"type": "string", "minLength": 1},
-        "versions": {"type": "array", "items": {"type": "object"}},
-        "migration_steps": {"type": "array", "items": {"type": "object"}}
+        "versions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["version", "read_behavior", "write_behavior", "fixture", "fixture_fingerprint", "immutable_on_read"],
+            "properties": {
+              "version": {"type": ["string", "integer"]},
+              "read_behavior": {"type": "string", "minLength": 1},
+              "write_behavior": {"type": "string", "minLength": 1},
+              "fixture": {"type": "string", "minLength": 1},
+              "fixture_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+              "immutable_on_read": {"type": "boolean"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "migration_steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from", "to", "work_package_id", "rollback_or_recovery"],
+            "properties": {
+              "from": {"type": ["string", "integer"]},
+              "to": {"type": ["string", "integer"]},
+              "work_package_id": {"$ref": "#/$defs/workPackageId"},
+              "rollback_or_recovery": {"type": "string", "minLength": 1}
+            },
+            "additionalProperties": false
+          }
+        }
       },
+      "allOf": [{"if": {"properties": {"required": {"const": true}}, "required": ["required"]}, "then": {"properties": {"versions": {"minItems": 1}}}}],
       "additionalProperties": false
     },
     "work_packages": {
@@ -138,7 +180,7 @@
         "properties": {
           "id": {"$ref": "#/$defs/workPackageId"},
           "sequence": {"type": "integer", "minimum": 1},
-          "value_phase": {"type": "integer", "minimum": 1},
+          "value_phase": {"type": "integer", "minimum": 0},
           "status": {"enum": ["pending", "in_progress", "pass", "fail", "blocked"]},
           "title": {"type": "string", "minLength": 1},
           "kind": {"enum": ["behavior", "architectural_prerequisite", "migration", "integration"]},
@@ -193,16 +235,52 @@
         "additionalProperties": false
       }
     },
-    "readiness_review": {"type": "object"},
+    "readiness_review": {
+      "type": "object",
+      "required": ["reviewer", "reviewed_at", "invariant_coverage", "consumer_coverage", "compatibility_coverage", "fr_ac_coverage", "work_package_coverage", "verification_coverage", "quality_gate_coverage", "adversarial_coverage", "unresolved_findings"],
+      "properties": {
+        "reviewer": {"type": "string"},
+        "reviewed_at": {"type": "string"},
+        "invariant_coverage": {"enum": ["pending", "pass", "fail"]},
+        "consumer_coverage": {"enum": ["pending", "pass", "fail"]},
+        "compatibility_coverage": {"enum": ["pending", "pass", "fail"]},
+        "fr_ac_coverage": {"enum": ["pending", "pass", "fail"]},
+        "work_package_coverage": {"enum": ["pending", "pass", "fail"]},
+        "verification_coverage": {"enum": ["pending", "pass", "fail"]},
+        "quality_gate_coverage": {"enum": ["pending", "pass", "fail"]},
+        "adversarial_coverage": {"enum": ["pending", "pass", "fail"]},
+        "unresolved_findings": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
     "defect_classes": {"type": "array", "items": {"type": "object"}},
-    "handoff": {"type": "object"}
+    "handoff": {
+      "type": "object",
+      "required": ["base_commit", "head_commit", "invariant_ids", "changed_contract_ids", "persisted_formats_affected", "migration_versions_and_fixtures", "consumers_inspected", "prior_findings_and_regressions", "commands_run", "known_limitations", "independent_reviewer", "reviewed_at", "review_result"],
+      "properties": {
+        "base_commit": {"type": "string"},
+        "head_commit": {"type": "string"},
+        "invariant_ids": {"type": "array", "items": {"$ref": "#/$defs/invariantId"}, "uniqueItems": true},
+        "changed_contract_ids": {"type": "array", "items": {"$ref": "#/$defs/contractId"}, "uniqueItems": true},
+        "persisted_formats_affected": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "migration_versions_and_fixtures": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "consumers_inspected": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "prior_findings_and_regressions": {"type": "array", "items": {"type": "string"}},
+        "commands_run": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "known_limitations": {"type": "array", "items": {"type": "string"}},
+        "independent_reviewer": {"type": "string"},
+        "reviewed_at": {"type": "string"},
+        "review_result": {"enum": ["pending", "pass", "fail"]}
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": false,
   "$defs": {
     "intentId": {"type": "string", "pattern": "^(FR|CAC)-[0-9]+$"},
     "acceptanceId": {"type": "string", "pattern": "^(AC|CAC)-[0-9]+$"},
     "invariantId": {"type": "string", "pattern": "^INV-[0-9]+$"},
-    "contractId": {"type": "string", "pattern": "^CONTRACT-[0-9]+$"},
+    "contractId": {"type": "string", "pattern": "^(?:CHANGE-)?CONTRACT-[0-9]+$"},
     "workPackageId": {"type": "string", "pattern": "^WP-[0-9]+$"},
     "verificationId": {"type": "string", "pattern": "^VERIFY-[0-9]+$"}
   }

@@ -9,7 +9,7 @@ governance:
   rules:
     - Extensions are additive and must not silently replace base requirements.
     - Archetypes compose reusable guardrails plus a small domain-specific delta.
-    - Activation is detected by the agent and confirmed in domain language.
+    - Activation is detected by the agent and included in the combined opening restatement for correction.
     - Every non-stable entry names an empirical promotion bar.
     - Human-facing question width must not increase for inactive entries.
 

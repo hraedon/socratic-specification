@@ -51,12 +51,13 @@ invariants:
       round_trip: ""              # Unchanged representation guarantee, or not_applicable
       compatibility: ""           # Old/current representation guarantee, or not_applicable
     verification_ids: []          # [REQUIRED] References into verification[]
+    source_preserved_behavior_ids: [] # PRESERVE IDs when sourced from a change-spec
 
 # One entry per shared model, schema, API, event, or persisted representation
 # changed by the phase. Use the repository's real layers and names. The common
 # chain below is a search checklist, not an assumed architecture.
 changed_contracts:
-  - id: "CONTRACT-01"
+  - id: "CONTRACT-01"             # Retain CHANGE-CONTRACT-xx IDs from change-spec sources
     name: ""
     invariant_ids: ["INV-01"]
     change: ""                    # What changes and what deliberately does not
@@ -134,7 +135,7 @@ compatibility:
 work_packages:
   - id: "WP-01"
     sequence: 1                   # [REQUIRED] Implementation order; ties require no dependency
-    value_phase: 1               # Human value phase this enables; 0 for change-spec delta
+    value_phase: 1               # Must equal phase_plan.target_value_phase
     status: "pending"             # "pending" | "in_progress" | "pass" | "fail" | "blocked"
     title: ""
     kind: "behavior"              # "behavior" | "architectural_prerequisite" | "migration" | "integration"

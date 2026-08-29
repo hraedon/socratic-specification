@@ -24,8 +24,8 @@ A well-designed elicitation process can produce a production-grade spec from a v
 ## How It Works
 
 1. A human writes a description of what they want to build — at whatever quality level they can manage
-2. An AI partner reads it, detects the project type, and confirms its understanding
-3. The AI iterates with the human using targeted domain-language questions, translating answers into technical requirements
+2. An AI partner reads the prompt and available evidence, detects the project type, and confirms one combined understanding
+3. The AI resolves discoverable facts first, then asks the smallest useful set of domain-language questions and translates consequential answers into technical requirements
 4. The AI synthesizes a structured spec artifact ready for an implementing agent
 5. The canonical YAML is validated and rendered into a full human view plus a concise decision brief
 6. For factory-bound work, the implementing agent inspects the target codebase and produces a verified work plan before writing code
@@ -38,7 +38,7 @@ A well-designed elicitation process can produce a production-grade spec from a v
 | 2 | Verifiable | Agent can build and write tests against the spec |
 | 3 | Complete | Agent can implement without asking any clarifying question |
 
-The human declares a desired level. The AI assesses what's actually achievable and pushes back if the gap can't be closed.
+The human may request a level, but does not need to learn the level system. The AI recommends a target from the intended use and risk, then pushes back if a requested level is not achievable.
 
 ## Key Principles
 
@@ -94,6 +94,7 @@ python scripts/spec_tools.py validate spec.yaml --ready
 python scripts/spec_tools.py render spec.yaml --output spec.md
 python scripts/spec_tools.py brief spec.yaml --output decision-brief.md
 python scripts/spec_tools.py check-sync spec.yaml spec.md
+python scripts/spec_tools.py check-sync spec.yaml decision-brief.md --kind brief
 python scripts/spec_tools.py validate .factory/work-plan.yaml --ready
 python scripts/spec_tools.py validate .factory/work-plan.yaml --handoff
 python scripts/spec_tools.py validate change-spec.yaml --kind change-spec --ready

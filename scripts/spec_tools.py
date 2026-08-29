@@ -13,14 +13,16 @@ import hashlib
 import json
 import sys
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 
-
 ROOT = Path(__file__).resolve().parents[1]
+_TOOL_DIR = Path(__file__).resolve().parent
+SCHEMA_ROOT = _TOOL_DIR / "schemas" if (_TOOL_DIR / "schemas").is_dir() else ROOT / "schemas"
 STANDARD_CONSUMER_LAYERS = {
     "parser",
     "domain_model",
@@ -221,25 +223,64 @@ def validate_work_plan_semantics(
     contract_ids = {item.get("id") for item in contracts if item.get("id")}
     package_ids = {item.get("id") for item in packages if item.get("id")}
     verify_ids = {item.get("id") for item in verification if item.get("id")}
+    package_by_id = {item.get("id"): item for item in packages if item.get("id")}
+    verification_by_id = {item.get("id"): item for item in verification if item.get("id")}
     target_intent = set(data.get("phase_plan", {}).get("intent_ids", []))
     known_intent: set[str] = set()
     known_acceptance: set[str] = set()
     required_acceptance: set[str] = set()
+    source_data: dict[str, Any] = {}
+    source_prerequisite_descriptions: set[str] = set()
+    source_change_contracts: dict[str, dict[str, Any]] = {}
+    source_preserved_behavior_ids: set[str] = set()
+    source_historical_fixtures: set[str] = set()
+    source_quality_gates: set[tuple[str, str]] = set()
 
     source = data.get("source", {})
+    source_kind = source.get("artifact_kind")
     declared_source = source.get("artifact_path")
     source_path: Path | None = None
     if declared_source:
         candidate = Path(declared_source)
-        candidates = [candidate] if candidate.is_absolute() else [Path.cwd() / candidate]
-        if artifact_path is not None and not candidate.is_absolute():
-            candidates.append(artifact_path.parent / candidate)
+        if candidate.is_absolute():
+            candidates = [candidate]
+        else:
+            candidates = []
+            repository_path = Path(source.get("repository", ""))
+            if repository_path.is_absolute():
+                candidates.append(repository_path / candidate)
+            if artifact_path is not None:
+                candidates.append(artifact_path.parent / candidate)
+                if artifact_path.parent.name == ".factory":
+                    candidates.append(artifact_path.parent.parent / candidate)
+            candidates.append(Path.cwd() / candidate)
         source_path = next((item for item in candidates if item.exists()), None)
     if source_path is None:
         errors.append(f"source artifact does not exist: {declared_source}")
     else:
         try:
             source_data = load_yaml(source_path)
+            detected_kind = (
+                "change_spec" if "change_schema_version" in source_data
+                else "spec" if "schema_version" in source_data.get("meta", {})
+                else None
+            )
+            if detected_kind != source_kind:
+                errors.append(
+                    f"source.artifact_kind is {source_kind!r}, but the artifact is {detected_kind!r}"
+                )
+            if source_kind == "spec":
+                source_errors = schema_errors(source_data, SCHEMA_ROOT / "spec-v2.schema.json")
+                source_errors.extend(validate_spec_semantics(source_data, ready=True))
+            elif source_kind == "change_spec":
+                source_errors = schema_errors(
+                    source_data, SCHEMA_ROOT / "change-spec-v1.schema.json"
+                )
+                source_errors.extend(validate_change_spec(source_data, ready=True))
+            else:
+                source_errors = [f"unsupported source artifact kind: {source_kind!r}"]
+            errors.extend(f"source artifact: {error}" for error in source_errors)
+
             actual_fingerprint = canonical_fingerprint(source_data)
             if source.get("artifact_fingerprint") != actual_fingerprint:
                 errors.append(
@@ -274,6 +315,14 @@ def validate_work_plan_semantics(
                     for item in criteria
                     if set(item.get("fr_ids", [])) & target_intent
                 }
+                source_prerequisite_descriptions = {
+                    item.get("requires")
+                    for item in source_data.get("mvp", {}).get(
+                        "architectural_prerequisites", []
+                    )
+                    if item.get("resolution") == "invisible_infrastructure"
+                    and item.get("fr_id") in target_intent
+                }
             elif source.get("artifact_kind") == "change_spec":
                 criteria = source_data.get("acceptance_criteria", [])
                 known_intent = {item.get("id") for item in criteria if item.get("id")}
@@ -286,44 +335,173 @@ def validate_work_plan_semantics(
                     )
                 if data.get("phase_plan", {}).get("target_value_phase") != 0:
                     errors.append("change-spec work plans use target_value_phase: 0")
+                if source.get("change_mode") != "existing_system":
+                    errors.append("change-spec work plans use source.change_mode: existing_system")
+                baseline = source_data.get("baseline", {})
+                if source.get("repository") != baseline.get("repository"):
+                    errors.append("source.repository must match change-spec baseline.repository")
+                if source.get("base_commit") != baseline.get("commit"):
+                    errors.append("source.base_commit must match change-spec baseline.commit")
+                source_change_contracts = {
+                    item.get("id"): item
+                    for item in source_data.get("changed_contracts", [])
+                    if item.get("id")
+                }
+                source_preserved_behavior_ids = {
+                    item.get("id")
+                    for item in source_data.get("preserved_behaviors", [])
+                    if item.get("id")
+                }
+                source_historical_fixtures = set(
+                    source_data.get("compatibility", {}).get("historical_fixtures", [])
+                )
+                source_quality_gates = {
+                    (item.get("name", ""), item.get("command", ""))
+                    for item in source_data.get("baseline", {}).get("quality_gates", [])
+                }
         except ArtifactError as exc:
             errors.append(str(exc))
 
     errors.extend(_unknown_refs(target_intent, known_intent, "phase_plan.intent_ids"))
 
+    planned_prerequisite_descriptions: set[str] = set()
+    for prerequisite in data.get("phase_plan", {}).get("architectural_prerequisites", []):
+        prerequisite_packages = prerequisite.get("work_package_ids", [])
+        if prerequisite.get("description"):
+            planned_prerequisite_descriptions.add(prerequisite["description"])
+        errors.extend(
+            _unknown_refs(prerequisite_packages, package_ids, "architectural prerequisite")
+        )
+    missing_prerequisites = (
+        source_prerequisite_descriptions - planned_prerequisite_descriptions
+    )
+    if missing_prerequisites:
+        errors.append(
+            "source architectural prerequisites without work-plan mapping: "
+            f"{sorted(missing_prerequisites)}"
+        )
+
     covered_intent: set[str] = set()
     covered_acceptance: set[str] = set()
+    covered_invariants: set[str] = set()
+    covered_contracts: set[str] = set()
+    contract_owners: dict[str, list[str]] = {contract_id: [] for contract_id in contract_ids}
     for package in packages:
         package_id = package.get("id", "<package>")
         package_intent = package.get("intent_ids", [])
         package_acceptance = package.get("acceptance_criteria_ids", [])
+        package_invariants = package.get("invariant_ids", [])
+        package_contracts = package.get("contract_ids", [])
+        package_verification_ids = package.get("verification_ids", [])
         covered_intent.update(package_intent)
         covered_acceptance.update(package_acceptance)
+        covered_invariants.update(package_invariants)
+        covered_contracts.update(package_contracts)
         errors.extend(_unknown_refs(package_intent, known_intent, package_id))
         errors.extend(_unknown_refs(package_acceptance, known_acceptance, package_id))
-        errors.extend(_unknown_refs(package.get("invariant_ids", []), invariant_ids, package_id))
-        errors.extend(_unknown_refs(package.get("contract_ids", []), contract_ids, package_id))
+        errors.extend(_unknown_refs(package_invariants, invariant_ids, package_id))
+        errors.extend(_unknown_refs(package_contracts, contract_ids, package_id))
         errors.extend(_unknown_refs(package.get("owns_contracts", []), contract_ids, package_id))
         errors.extend(_unknown_refs(package.get("depends_on", []), package_ids, package_id))
-        errors.extend(_unknown_refs(package.get("verification_ids", []), verify_ids, package_id))
+        errors.extend(_unknown_refs(package_verification_ids, verify_ids, package_id))
+
+        for contract_id in package.get("owns_contracts", []):
+            if contract_id in contract_owners:
+                contract_owners[contract_id].append(package_id)
+            if contract_id not in package_contracts:
+                errors.append(f"{package_id} owns {contract_id} but does not include it in contract_ids")
+
+        package_phase = package.get("value_phase")
+        target_phase = data.get("phase_plan", {}).get("target_value_phase")
+        if package_phase != target_phase:
+            errors.append(
+                f"{package_id}.value_phase must equal phase_plan.target_value_phase "
+                f"({package_phase} != {target_phase})"
+            )
+
+        package_verifications = [
+            verification_by_id[verification_id]
+            for verification_id in package_verification_ids
+            if verification_id in verification_by_id
+        ]
+        for values, coverage_field, label in (
+            (set(package_intent), "covers_intent_ids", "intent IDs"),
+            (set(package_acceptance), "covers_acceptance_criteria_ids", "acceptance criteria"),
+            (set(package_invariants), "covers_invariant_ids", "invariants"),
+            (set(package_contracts), "covers_contract_ids", "contracts"),
+        ):
+            verification_coverage = {
+                ref
+                for item in package_verifications
+                for ref in item.get(coverage_field, [])
+            }
+            missing = values - verification_coverage
+            if missing:
+                errors.append(
+                    f"{package_id} {label} without package verification coverage: {sorted(missing)}"
+                )
+
+        for dependency_id in package.get("depends_on", []):
+            dependency = package_by_id.get(dependency_id)
+            if dependency is not None and dependency.get("sequence", 0) >= package.get("sequence", 0):
+                errors.append(
+                    f"{package_id} dependency {dependency_id} must have an earlier sequence"
+                )
         if package_id in package.get("depends_on", []):
             errors.append(f"{package_id} cannot depend on itself")
+
     missing_intent = target_intent - covered_intent
     if missing_intent:
         errors.append(f"target intent IDs without work packages: {sorted(missing_intent)}")
     missing_acceptance = required_acceptance - covered_acceptance
     if missing_acceptance:
         errors.append(f"target acceptance criteria without work packages: {sorted(missing_acceptance)}")
+    missing_invariants = invariant_ids - covered_invariants
+    if missing_invariants:
+        errors.append(f"invariants without work packages: {sorted(missing_invariants)}")
+    missing_contracts = contract_ids - covered_contracts
+    if missing_contracts:
+        errors.append(f"changed contracts without work packages: {sorted(missing_contracts)}")
+    for contract_id, owners in contract_owners.items():
+        if len(owners) != 1:
+            errors.append(
+                f"{contract_id} must have exactly one owning work package (owners={sorted(owners)})"
+            )
+
     graph = {p.get("id"): p.get("depends_on", []) for p in packages if p.get("id")}
     errors.extend(_cycle_errors(graph))
 
     for invariant in invariants:
+        invariant_id = invariant.get("id", "<invariant>")
+        invariant_verification_ids = invariant.get("verification_ids", [])
         errors.extend(
-            _unknown_refs(
-                invariant.get("verification_ids", []), verify_ids, invariant.get("id", "invariant")
-            )
+            _unknown_refs(invariant_verification_ids, verify_ids, invariant_id)
+        )
+        for verification_id in invariant_verification_ids:
+            verification_item = verification_by_id.get(verification_id)
+            if (
+                verification_item is not None
+                and invariant_id not in verification_item.get("covers_invariant_ids", [])
+            ):
+                errors.append(
+                    f"{invariant_id} names {verification_id}, but that verification does not cover it"
+                )
+
+    planned_preserved_behavior_ids = {
+        preserved_id
+        for invariant in invariants
+        for preserved_id in invariant.get("source_preserved_behavior_ids", [])
+    }
+    missing_preserved_behaviors = (
+        source_preserved_behavior_ids - planned_preserved_behavior_ids
+    )
+    if missing_preserved_behaviors:
+        errors.append(
+            "source preserved behaviors without invariant mapping: "
+            f"{sorted(missing_preserved_behaviors)}"
         )
 
+    affected_consumer_packages: dict[str, set[str]] = {}
     for contract in contracts:
         contract_id = contract.get("id", "<contract>")
         errors.extend(_unknown_refs(contract.get("invariant_ids", []), invariant_ids, contract_id))
@@ -336,25 +514,132 @@ def validate_work_plan_semantics(
         if duplicate_layers:
             errors.append(f"{contract_id} duplicates consumer layers: {sorted(duplicate_layers)}")
         for consumer in consumers:
+            layer = consumer.get("layer")
+            consumer_ref = f"{contract_id}:{layer}:{consumer.get('location', '')}"
             refs = consumer.get("work_package_ids", [])
-            errors.extend(_unknown_refs(refs, package_ids, f"{contract_id}:{consumer.get('layer')}") )
-            if consumer.get("status") == "affected" and not refs:
-                errors.append(f"{contract_id}:{consumer.get('layer')} is affected but has no work package")
+            errors.extend(_unknown_refs(refs, package_ids, f"{contract_id}:{layer}"))
+            if consumer.get("status") == "affected":
+                affected_consumer_packages[consumer_ref] = set(refs)
+                if not refs:
+                    errors.append(f"{contract_id}:{layer} is affected but has no work package")
+                contract_invariants = set(contract.get("invariant_ids", []))
+                for package_id in refs:
+                    package = package_by_id.get(package_id)
+                    if package is None:
+                        continue
+                    if consumer_ref not in package.get("affected_consumers", []):
+                        errors.append(
+                            f"{consumer_ref} names {package_id}, but that package does not name the consumer"
+                        )
+                    if contract_id not in package.get("contract_ids", []):
+                        errors.append(
+                            f"{consumer_ref} assigns {package_id}, but that package does not include {contract_id}"
+                        )
+                    missing_package_invariants = contract_invariants - set(
+                        package.get("invariant_ids", [])
+                    )
+                    if missing_package_invariants:
+                        errors.append(
+                            f"{consumer_ref} assigns {package_id} without contract invariants: "
+                            f"{sorted(missing_package_invariants)}"
+                        )
+
+    for package in packages:
+        package_id = package.get("id", "<package>")
+        for consumer_ref in package.get("affected_consumers", []):
+            assigned_packages = affected_consumer_packages.get(consumer_ref)
+            if assigned_packages is None:
+                errors.append(f"{package_id}.affected_consumers references unknown affected consumer {consumer_ref}")
+            elif package_id not in assigned_packages:
+                errors.append(
+                    f"{package_id} names {consumer_ref}, but the consumer does not name that package"
+                )
+
+    plan_contracts_by_id = {
+        item.get("id"): item for item in contracts if item.get("id")
+    }
+    missing_source_contracts = set(source_change_contracts) - set(plan_contracts_by_id)
+    if missing_source_contracts:
+        errors.append(
+            f"source changed contracts omitted from work plan: {sorted(missing_source_contracts)}"
+        )
+    for contract_id, source_contract in source_change_contracts.items():
+        planned_contract = plan_contracts_by_id.get(contract_id)
+        if planned_contract is None:
+            continue
+        planned_consumers = {
+            (item.get("layer"), item.get("location")): item
+            for item in planned_contract.get("consumers", [])
+        }
+        for source_consumer in source_contract.get("consumers", []):
+            key = (source_consumer.get("layer"), source_consumer.get("location"))
+            planned_consumer = planned_consumers.get(key)
+            if planned_consumer is None or planned_consumer.get("status") != "affected":
+                errors.append(
+                    f"source consumer {contract_id}:{key[0]}:{key[1]} is not mapped as affected"
+                )
+
+    planned_quality_gates = {
+        (item.get("name", ""), item.get("command", ""))
+        for item in data.get("quality_gates", [])
+    }
+    missing_quality_gates = source_quality_gates - planned_quality_gates
+    if missing_quality_gates:
+        errors.append(
+            f"source quality gates omitted from work plan: {sorted(missing_quality_gates)}"
+        )
 
     compatibility = data.get("compatibility", {})
     if compatibility.get("required") and not compatibility.get("versions"):
         errors.append("compatibility.required is true but no versions are enumerated")
-
-    for item in verification:
-        verify_id = item.get("id", "<verification>")
-        errors.extend(_unknown_refs(item.get("covers_intent_ids", []), known_intent, verify_id))
+    if source_historical_fixtures and not compatibility.get("required"):
+        errors.append("source compatibility fixtures require compatibility.required: true")
+    planned_fixtures = {
+        item.get("fixture") for item in compatibility.get("versions", []) if item.get("fixture")
+    }
+    missing_source_fixtures = source_historical_fixtures - planned_fixtures
+    if missing_source_fixtures:
+        errors.append(
+            f"source historical fixtures omitted from compatibility matrix: "
+            f"{sorted(missing_source_fixtures)}"
+        )
+    for migration in compatibility.get("migration_steps", []):
         errors.extend(
             _unknown_refs(
-                item.get("covers_acceptance_criteria_ids", []), known_acceptance, verify_id
+                [migration.get("work_package_id")],
+                package_ids,
+                "compatibility migration step",
             )
         )
-        errors.extend(_unknown_refs(item.get("covers_invariant_ids", []), invariant_ids, verify_id))
-        errors.extend(_unknown_refs(item.get("covers_contract_ids", []), contract_ids, verify_id))
+
+    verified_intent: set[str] = set()
+    verified_acceptance: set[str] = set()
+    verified_invariants: set[str] = set()
+    verified_contracts: set[str] = set()
+    for item in verification:
+        verify_id = item.get("id", "<verification>")
+        item_intent = item.get("covers_intent_ids", [])
+        item_acceptance = item.get("covers_acceptance_criteria_ids", [])
+        item_invariants = item.get("covers_invariant_ids", [])
+        item_contracts = item.get("covers_contract_ids", [])
+        verified_intent.update(item_intent)
+        verified_acceptance.update(item_acceptance)
+        verified_invariants.update(item_invariants)
+        verified_contracts.update(item_contracts)
+        errors.extend(_unknown_refs(item_intent, known_intent, verify_id))
+        errors.extend(_unknown_refs(item_acceptance, known_acceptance, verify_id))
+        errors.extend(_unknown_refs(item_invariants, invariant_ids, verify_id))
+        errors.extend(_unknown_refs(item_contracts, contract_ids, verify_id))
+
+    for required, covered, label in (
+        (target_intent, verified_intent, "target intent IDs"),
+        (required_acceptance, verified_acceptance, "target acceptance criteria"),
+        (invariant_ids, verified_invariants, "invariants"),
+        (contract_ids, verified_contracts, "changed contracts"),
+    ):
+        missing = required - covered
+        if missing:
+            errors.append(f"{label} without verification coverage: {sorted(missing)}")
 
     for case in data.get("adversarial_matrix", []):
         case_name = case.get("case", "<case>")
@@ -369,6 +654,8 @@ def validate_work_plan_semantics(
         review = data.get("readiness_review", {})
         if not review.get("reviewer"):
             errors.append("readiness_review.reviewer is required before implementation")
+        if not review.get("reviewed_at"):
+            errors.append("readiness_review.reviewed_at is required before implementation")
         for field in REVIEW_COVERAGE_FIELDS:
             if review.get(field) != "pass":
                 errors.append(f"readiness_review.{field} must be pass")
@@ -382,11 +669,67 @@ def validate_work_plan_semantics(
         for item in verification:
             if item.get("result") != "pass":
                 errors.append(f"{item.get('id')} is not passing at handoff")
+            if not item.get("evidence"):
+                errors.append(f"{item.get('id')} has no evidence at handoff")
         for gate in data.get("quality_gates", []):
             if gate.get("required") and gate.get("result") != "pass":
                 errors.append(f"required quality gate {gate.get('name')} is not passing")
-        if data.get("handoff", {}).get("review_result") != "pass":
+            if gate.get("required") and not gate.get("result_evidence"):
+                errors.append(
+                    f"required quality gate {gate.get('name')} has no result evidence"
+                )
+
+        handoff_data = data.get("handoff", {})
+        if handoff_data.get("review_result") != "pass":
             errors.append("handoff.review_result must be pass")
+        if not handoff_data.get("independent_reviewer"):
+            errors.append("handoff.independent_reviewer is required")
+        if not handoff_data.get("reviewed_at"):
+            errors.append("handoff.reviewed_at is required")
+        for field in ("base_commit", "head_commit"):
+            if not handoff_data.get(field):
+                errors.append(f"handoff.{field} is required")
+            elif handoff_data.get(field) != source.get(field):
+                errors.append(f"handoff.{field} must match source.{field}")
+        if set(handoff_data.get("invariant_ids", [])) != invariant_ids:
+            errors.append("handoff.invariant_ids must exactly match planned invariants")
+        if set(handoff_data.get("changed_contract_ids", [])) != contract_ids:
+            errors.append(
+                "handoff.changed_contract_ids must exactly match planned changed contracts"
+            )
+        expected_consumers = set(affected_consumer_packages)
+        missing_inspected = expected_consumers - set(
+            handoff_data.get("consumers_inspected", [])
+        )
+        if missing_inspected:
+            errors.append(
+                f"handoff.consumers_inspected omits affected consumers: "
+                f"{sorted(missing_inspected)}"
+            )
+        expected_commands = {
+            item.get("command") for item in verification if item.get("command")
+        }
+        expected_commands.update(
+            gate.get("command")
+            for gate in data.get("quality_gates", [])
+            if gate.get("required") and gate.get("command")
+        )
+        missing_commands = expected_commands - set(handoff_data.get("commands_run", []))
+        if missing_commands:
+            errors.append(f"handoff.commands_run omits commands: {sorted(missing_commands)}")
+        if compatibility.get("required"):
+            if not handoff_data.get("persisted_formats_affected"):
+                errors.append(
+                    "handoff.persisted_formats_affected is required for compatibility work"
+                )
+            missing_handoff_fixtures = planned_fixtures - set(
+                handoff_data.get("migration_versions_and_fixtures", [])
+            )
+            if missing_handoff_fixtures:
+                errors.append(
+                    "handoff.migration_versions_and_fixtures omits fixtures: "
+                    f"{sorted(missing_handoff_fixtures)}"
+                )
 
     return errors
 
@@ -412,13 +755,13 @@ def validate_artifact(
             return data, ["legacy implicit-v1 spec: migrate to schema v2 before canonical use"]
         if version != 2:
             return data, [f"unsupported spec schema version {version}; this tool supports 2"]
-        errors = schema_errors(data, ROOT / "schemas/spec-v2.schema.json")
+        errors = schema_errors(data, SCHEMA_ROOT / "spec-v2.schema.json")
         errors.extend(validate_spec_semantics(data, ready=ready))
     elif kind == "work-plan":
         version = data.get("plan_version")
         if version != 1:
             return data, [f"unsupported work-plan version {version}; this tool supports 1"]
-        errors = schema_errors(data, ROOT / "schemas/work-plan-v1.schema.json")
+        errors = schema_errors(data, SCHEMA_ROOT / "work-plan-v1.schema.json")
         errors.extend(
             validate_work_plan_semantics(
                 data, artifact_path=path, ready=ready, handoff=handoff
@@ -458,6 +801,7 @@ def _table(headers: list[str], rows: list[list[Any]]) -> list[str]:
 def render_spec(data: dict[str, Any]) -> str:
     meta = data["meta"]
     fingerprint = canonical_fingerprint(data)
+    desired_level = meta.get("desired_level") or "not requested"
     lines = [
         "<!-- Generated from canonical spec.yaml. Do not edit directly. -->",
         f"<!-- canonical-fingerprint: {fingerprint} -->",
@@ -468,7 +812,7 @@ def render_spec(data: dict[str, Any]) -> str:
         f"**Revision:** {meta['revision']}",
         f"**Schema version:** {meta['schema_version']}",
         f"**Spec level:** {meta['spec_level']}",
-        f"**Desired level:** {meta['desired_level']}",
+        f"**Desired level:** {desired_level}",
         f"**Date:** {meta['date']}",
         f"**Extensions active:** {', '.join(meta.get('extensions', [])) or 'None'}",
         "",
@@ -710,7 +1054,7 @@ def render_change_spec(data: dict[str, Any]) -> str:
 
 
 def validate_change_spec(data: dict[str, Any], *, ready: bool = False) -> list[str]:
-    schema_path = ROOT / "schemas/change-spec-v1.schema.json"
+    schema_path = SCHEMA_ROOT / "change-spec-v1.schema.json"
     if not schema_path.exists():
         return ["change-spec schema is not installed"]
     errors = schema_errors(data, schema_path)
@@ -779,7 +1123,9 @@ def main(argv: list[str] | None = None) -> int:
     sync_parser = sub.add_parser("check-sync", help="Fail if generated Markdown differs from canonical YAML")
     sync_parser.add_argument("path", type=Path)
     sync_parser.add_argument("markdown", type=Path)
-    sync_parser.add_argument("--kind", choices=["spec", "change-spec"], default="spec")
+    sync_parser.add_argument(
+        "--kind", choices=["spec", "change-spec", "brief"], default="spec"
+    )
 
     fingerprint_parser = sub.add_parser("fingerprint", help="Print the canonical structured fingerprint")
     fingerprint_parser.add_argument("path", type=Path)
@@ -813,7 +1159,15 @@ def main(argv: list[str] | None = None) -> int:
             args.output.write_text(render_decision_brief(data), encoding="utf-8")
             print(f"wrote {args.output}")
         elif args.command == "check-sync":
-            expected = render_change_spec(data) if args.kind == "change-spec" else render_spec(data)
+            if args.kind == "change-spec":
+                expected = render_change_spec(data)
+                render_command = "render-change"
+            elif args.kind == "brief":
+                expected = render_decision_brief(data)
+                render_command = "brief"
+            else:
+                expected = render_spec(data)
+                render_command = "render"
             try:
                 actual = args.markdown.read_text(encoding="utf-8")
             except OSError as exc:
@@ -821,7 +1175,8 @@ def main(argv: list[str] | None = None) -> int:
             if actual != expected:
                 print(
                     f"{args.markdown}: generated view is stale; run "
-                    f"scripts/spec_tools.py render {args.path} --output {args.markdown}",
+                    f"scripts/spec_tools.py {render_command} {args.path} "
+                    f"--output {args.markdown}",
                     file=sys.stderr,
                 )
                 return 1

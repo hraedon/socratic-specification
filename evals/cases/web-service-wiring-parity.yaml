@@ -8,6 +8,9 @@ input:
     - "The dashboard runs as a Docker container with a SQLite database."
     - "Email is sent via an internal SMTP relay on port 25."
     - "The daily check should run without an external cron job."
+attention_budget:
+  maximum_human_questions: 3
+  rationale: Wiring obligations are decomposition facts, not questions for the product owner.
 expected_obligations:
   - id: OB-01
     severity: critical

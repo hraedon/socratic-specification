@@ -12,4 +12,4 @@ jobs:
       - name: Check for committed work-domain identifiers
         env:
           SOCRATIC_SPECIFICATION_FORBIDDEN_IDENTIFIERS: ${{ secrets.SOCRATIC_SPECIFICATION_FORBIDDEN_IDENTIFIERS }}
-        run: python3 scripts/check_committed_identifiers.py
+        run: python3 scripts/check_committed_identifiers.py --require-denylist

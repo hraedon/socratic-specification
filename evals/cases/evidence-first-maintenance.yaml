@@ -1,0 +1,43 @@
+case_version: 1
+id: evidence-first-maintenance
+mode: change_existing_system
+purpose: Ensure repository facts are inspected rather than pushed back onto a non-technical user.
+input:
+  vibe_spec: Keep the current report working, but let people download the same results as CSV too.
+  available_context:
+    - The pinned repository commit exposes a CLI command that writes report-v1 JSON.
+    - A parser, comparison job, documentation page, and three snapshot tests consume report-v1 JSON.
+    - The repository already uses the standard-library CSV writer elsewhere.
+    - Existing JSON output is an externally consumed compatibility contract.
+attention_budget:
+  maximum_human_questions: 2
+  rationale: The requested outcome and current technical facts are supplied; only an unresolved product policy should require a question.
+expected_obligations:
+  - id: OB-01
+    severity: critical
+    deadline: pre_synthesis
+    obligation: Pin and cite the inspected baseline rather than asking the human to describe current implementation facts.
+    rationale: The current contract and consumers are repository evidence.
+  - id: OB-02
+    severity: critical
+    deadline: work_decomposition
+    obligation: Preserve report-v1 JSON and map the CLI, parser, comparison job, tests, and documentation as consumers.
+    rationale: Adding CSV must not silently break the existing external contract.
+  - id: OB-03
+    severity: important
+    deadline: work_decomposition
+    obligation: Verify both unchanged JSON output and equivalent CSV content through production-facing paths.
+    rationale: A new formatter test alone does not prove old behavior or consumer reachability.
+anti_obligations:
+  - id: ANTI-01
+    anti_obligation: Ask the human which code paths, tests, or consumers currently implement JSON reporting.
+    rationale: Those facts are present in supplied repository context and should be inspected.
+  - id: ANTI-02
+    anti_obligation: Ask the human to choose a CSV library or implementation pattern.
+    rationale: The repository evidence supplies a safe implementation default.
+  - id: ANTI-03
+    anti_obligation: Require the human to choose a numbered specification level before proceeding.
+    rationale: The user should state delivery intent, not operate the process maturity model.
+  - id: ANTI-04
+    anti_obligation: Require separate confirmations for mode, restatement, every derived field, and termination.
+    rationale: One combined opening correction point and the final decision brief are sufficient here.

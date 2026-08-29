@@ -53,7 +53,8 @@ if [ -f "$REPO_ROOT/spec.md" ]; then
 fi
 
 if [ -f "$REPO_ROOT/decision-brief.md" ]; then
-  "$python_bin" "$GATE_DIR/spec_tools.py" check-sync "$SPEC" "$REPO_ROOT/decision-brief.md"
+  "$python_bin" "$GATE_DIR/spec_tools.py" check-sync "$SPEC" \
+    "$REPO_ROOT/decision-brief.md" --kind brief
 fi
 
 echo "spec-gate: passed" >&2
@@ -67,9 +68,9 @@ cat > "$WORKFLOW_DIR/spec-gate.yml" << 'EOF'
 name: spec-gate
 on:
   push:
-    paths: ['spec.yaml', 'spec.md', 'decision-brief.md']
+    paths: ['spec.yaml', 'spec.md', 'decision-brief.md', '.spec-gate/**', '.github/workflows/spec-gate.yml']
   pull_request:
-    paths: ['spec.yaml', 'spec.md', 'decision-brief.md']
+    paths: ['spec.yaml', 'spec.md', 'decision-brief.md', '.spec-gate/**', '.github/workflows/spec-gate.yml']
 
 jobs:
   validate:
@@ -79,6 +80,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - run: python -m pip install 'PyYAML>=6.0,<7' 'jsonschema>=4.20,<5'
       - run: .spec-gate/spec-gate.sh
 EOF
 

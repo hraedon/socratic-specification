@@ -39,6 +39,27 @@ def test_rendered_views_are_deterministic_and_fingerprinted() -> None:
     assert "# Decision Brief: Plant Reminder" in brief
 
 
+def test_decision_brief_includes_all_hard_to_reverse_risks() -> None:
+    data = yaml.safe_load((FIXTURES / "valid-spec-v2.yaml").read_text())
+    data["risks"] = [
+        {
+            "id": f"RISK-{index}",
+            "risk": f"hard risk {index}",
+            "impact": "material",
+            "mitigation": "mitigate",
+            "owner": "owner",
+            "reversibility": "costly",
+            "requires_human_decision": False,
+            "provenance": {"kind": "agent_inferred", "note": "test"},
+        }
+        for index in range(1, 5)
+    ]
+    brief = render_decision_brief(data)
+    for index in range(1, 5):
+        assert f"hard risk {index}" in brief
+    assert "## Material risks and hard-to-reverse choices" in brief
+
+
 def test_valid_work_plan_passes_readiness_gate() -> None:
     _, errors = validate_artifact(
         FIXTURES / "valid-work-plan.yaml", kind="work-plan", ready=True

@@ -953,11 +953,20 @@ def render_decision_brief(data: dict[str, Any]) -> str:
     pending_rows = [[q.get("question"), q.get("category"), q.get("owner"), "Not recorded"] for q in open_questions]
     pending_rows += [[d.get("decision"), d.get("status"), "Human/implementer", d.get("notes")] for d in deferred]
     lines += _table(["Decision", "Why pending", "Owner", "Recommendation or impact"], pending_rows)
-    lines += ["", "## Largest risks and hard-to-reverse choices", ""]
-    selected_risks = decision_risks + [r for r in risks if r not in decision_risks]
+    lines += ["", "## Material risks and hard-to-reverse choices", ""]
+    hard_risks = [
+        risk
+        for risk in risks
+        if risk.get("reversibility") in {"costly", "irreversible"}
+    ]
+    selected_risks = decision_risks + [
+        risk for risk in hard_risks if risk not in decision_risks
+    ]
+    if not selected_risks:
+        selected_risks = risks[:3]
     lines += _table(
         ["Risk", "Impact", "Mitigation", "Reversibility", "Needs your decision?"],
-        [[r.get("risk"), r.get("impact"), r.get("mitigation"), r.get("reversibility"), r.get("requires_human_decision")] for r in selected_risks[:3]],
+        [[r.get("risk"), r.get("impact"), r.get("mitigation"), r.get("reversibility"), r.get("requires_human_decision")] for r in selected_risks],
     )
     lines += [
         "",

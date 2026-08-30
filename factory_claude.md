@@ -29,7 +29,7 @@ Read `process.md`, `spec.template.yaml`, and `work-plan.template.yaml` before wr
 Key things the spec process gives you:
 
 - `functional_requirements[]` with `mvp: true/false` flags — what to build and in what priority order
-- `work_decomposition.value_phases` — human-declared delivery phases
+- `work_decomposition.value_phases` — human-declared delivery phases; when `br_ids` is present, all FR and BR phase ownership is machine-checked for completeness
 - `work_decomposition.dependency_hints` — intent-level prerequisite relationships between FRs
 - `mvp.architectural_prerequisites` — non-MVP FRs that must exist before MVP features can function
 - `high_coupling_decisions[]` — load-bearing architectural choices, each with a status

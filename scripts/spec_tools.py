@@ -116,6 +116,7 @@ def validate_spec_semantics(data: dict[str, Any], *, ready: bool = False) -> lis
     errors.extend(_duplicate_errors(risks, "id", "risk ID"))
 
     fr_ids = {item.get("id") for item in frs if item.get("id")}
+    br_ids = {item.get("id") for item in rules if item.get("id")}
     ac_ids = {item.get("id") for item in acs if item.get("id")}
     mvp_ids = set(data.get("mvp", {}).get("fr_ids", []))
     errors.extend(_unknown_refs(mvp_ids, fr_ids, "mvp.fr_ids"))
@@ -140,8 +141,30 @@ def validate_spec_semantics(data: dict[str, Any], *, ready: bool = False) -> lis
 
     phases = data.get("work_decomposition", {}).get("value_phases", [])
     errors.extend(_duplicate_errors(phases, "phase", "value phase"))
+    phase_fr_ids: list[str] = []
+    phase_rule_ids: list[str] = []
+    has_phase_rule_map = any("br_ids" in phase for phase in phases)
     for phase in phases:
-        errors.extend(_unknown_refs(phase.get("fr_ids", []), fr_ids, f"value phase {phase.get('phase')}") )
+        phase_label = f"value phase {phase.get('phase')}"
+        phase_fr_ids.extend(phase.get("fr_ids", []))
+        errors.extend(_unknown_refs(phase.get("fr_ids", []), fr_ids, phase_label))
+        if has_phase_rule_map:
+            refs = phase.get("br_ids", [])
+            phase_rule_ids.extend(refs)
+            errors.extend(_unknown_refs(refs, br_ids, f"{phase_label}.br_ids"))
+    duplicate_phase_frs = sorted({item for item in phase_fr_ids if phase_fr_ids.count(item) > 1})
+    if duplicate_phase_frs:
+        errors.append(f"functional requirements assigned to multiple value phases: {duplicate_phase_frs}")
+    if has_phase_rule_map:
+        unmapped_phase_frs = fr_ids - set(phase_fr_ids)
+        if unmapped_phase_frs:
+            errors.append(f"functional requirements missing from value phases: {sorted(unmapped_phase_frs)}")
+        duplicates = sorted({item for item in phase_rule_ids if phase_rule_ids.count(item) > 1})
+        if duplicates:
+            errors.append(f"business rules assigned to multiple value phases: {duplicates}")
+        unmapped = br_ids - set(phase_rule_ids)
+        if unmapped:
+            errors.append(f"business rules missing from value phases: {sorted(unmapped)}")
     if phases:
         phase_one = next((set(p.get("fr_ids", [])) for p in phases if p.get("phase") == 1), None)
         if phase_one is None:
@@ -887,7 +910,11 @@ def render_spec(data: dict[str, Any]) -> str:
     wd = data["work_decomposition"]
     lines += ["", "## 12. Work Decomposition", "", "### Value Phases", ""]
     for phase in wd.get("value_phases", []):
-        lines.append(f"- **Phase {phase.get('phase')} ({phase.get('label')}):** {', '.join(phase.get('fr_ids', []))} — {phase.get('rationale')}")
+        br_text = f"; BRs: {', '.join(phase.get('br_ids', []))}" if "br_ids" in phase else ""
+        lines.append(
+            f"- **Phase {phase.get('phase')} ({phase.get('label')}):** "
+            f"FRs: {', '.join(phase.get('fr_ids', []))}{br_text} — {phase.get('rationale')}"
+        )
     lines += ["", "### Dependency Hints", ""]
     hints = []
     for hint in wd.get("dependency_hints", []):

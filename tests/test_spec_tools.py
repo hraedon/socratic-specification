@@ -11,6 +11,7 @@ from scripts.spec_tools import (
     render_decision_brief,
     render_spec,
     validate_artifact,
+    validate_spec_semantics,
     validate_work_plan_semantics,
 )
 
@@ -37,6 +38,27 @@ def test_rendered_views_are_deterministic_and_fingerprinted() -> None:
     assert fingerprint in brief
     assert rendered == render_spec(data)
     assert "# Decision Brief: Plant Reminder" in brief
+
+
+def test_value_phases_map_requirements_and_business_rules_mechanically() -> None:
+    data = yaml.safe_load((FIXTURES / "valid-spec-v2.yaml").read_text())
+    legacy_partial = deepcopy(data)
+    legacy_partial["work_decomposition"]["value_phases"][0]["fr_ids"].remove("FR-02")
+    legacy_errors = validate_spec_semantics(legacy_partial, ready=True)
+    assert not any("functional requirements missing from value phases" in error for error in legacy_errors)
+
+    data["work_decomposition"]["value_phases"][0]["br_ids"] = ["BR-01"]
+    assert validate_spec_semantics(data, ready=True) == []
+    assert "BRs: BR-01" in render_spec(data)
+
+    missing_fr = deepcopy(data)
+    missing_fr["work_decomposition"]["value_phases"][0]["fr_ids"].remove("FR-02")
+    errors = validate_spec_semantics(missing_fr, ready=True)
+    assert any("functional requirements missing from value phases" in error for error in errors)
+
+    data["work_decomposition"]["value_phases"][0]["br_ids"] = []
+    errors = validate_spec_semantics(data, ready=True)
+    assert any("business rules missing from value phases" in error for error in errors)
 
 
 def test_decision_brief_includes_all_hard_to_reverse_risks() -> None:

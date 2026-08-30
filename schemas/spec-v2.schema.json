@@ -160,6 +160,7 @@
               "phase": {"type": "integer", "minimum": 1},
               "label": {"type": "string", "minLength": 1},
               "fr_ids": {"type": "array", "items": {"$ref": "#/$defs/frId"}, "uniqueItems": true},
+              "br_ids": {"type": "array", "items": {"$ref": "#/$defs/brId"}, "uniqueItems": true},
               "rationale": {"type": "string"}
             },
             "additionalProperties": false
@@ -230,6 +231,7 @@
   "additionalProperties": true,
   "$defs": {
     "frId": {"type": "string", "pattern": "^FR-[0-9]+$"},
+    "brId": {"type": "string", "pattern": "^BR-[0-9]+$"},
     "acId": {"type": "string", "pattern": "^AC-[0-9]+$"},
     "provenance": {
       "type": "object",

@@ -181,6 +181,7 @@ work_decomposition:
     - phase: 1                    # [REQUIRED]
       label: "MVP"                # [REQUIRED]
       fr_ids: []                  # [REQUIRED]
+      br_ids: []                  # [OPTIONAL AS A SET; if present, every FR and BR must map exactly once]
       rationale: ""
 
   dependency_hints:               # Intent-level only. Reflects logical inference from the spec,

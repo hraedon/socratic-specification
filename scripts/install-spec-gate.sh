@@ -24,10 +24,11 @@ if [ ! -d "$TARGET/.git" ]; then
 fi
 
 GATE_DIR="$TARGET/.spec-gate"
-mkdir -p "$GATE_DIR"
+rm -rf "$GATE_DIR"
+mkdir -p "$GATE_DIR/schemas"
 
 cp "$SPEC_REPO/scripts/spec_tools.py" "$GATE_DIR/spec_tools.py"
-cp -r "$SPEC_REPO/schemas" "$GATE_DIR/schemas"
+cp -R "$SPEC_REPO/schemas/." "$GATE_DIR/schemas/"
 
 cat > "$GATE_DIR/spec-gate.sh" << 'EOF'
 #!/usr/bin/env bash

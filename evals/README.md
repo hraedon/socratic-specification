@@ -20,8 +20,13 @@ their deadlines. Paraphrases count. Confidently inventing an answer does not.
 
 ## Recording and scoring a run
 
-Use `run.schema.json` to record one independent judgment for every expected and
-anti-obligation. Each judgment cites transcript or artifact evidence. The scorer
+Use the schema matching the artifact version to record one independent judgment
+for every expected and anti-obligation. `case.schema.json` and `run.schema.json`
+are the frozen v1 contracts; `case-v2.schema.json` and `run-v2.schema.json` are
+the current v2 contracts. The checker selects the version explicitly and rejects
+case/run version mismatches. v2 requires evidence to contain a non-whitespace
+character; v1 remains compatible with historical runs, including their original
+evidence rules. Each judgment cites transcript or artifact evidence. The scorer
 does not decide whether a paraphrase counts; a reviewer makes that semantic
 judgment and the machine checks completeness, deadlines, and arithmetic.
 
@@ -56,6 +61,7 @@ least two independent historical projects where available.
 
 ## Adding cases
 
-Use `case.schema.json`. Prefer the smallest input that isolates a failure class.
+Use the current `case-v2.schema.json` for new cases. `case.schema.json` remains
+available for historical v1 cases. Prefer the smallest input that isolates a failure class.
 Never copy regulated, confidential, or identifying project data into this corpus;
 represent the structural shape synthetically.

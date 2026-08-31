@@ -1,4 +1,4 @@
-case_version: 1
+case_version: 2
 id: greenfield-local-tool
 mode: greenfield
 purpose: Ensure a small project remains small while still closing the persistence and failure loops.

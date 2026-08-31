@@ -9,8 +9,10 @@ coverage gaps, and readiness claims that cannot be true.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import hashlib
 import json
+import re
 import sys
 from collections import Counter
 from collections.abc import Iterable
@@ -19,6 +21,7 @@ from typing import Any
 
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema.exceptions import SchemaError
 
 ROOT = Path(__file__).resolve().parents[1]
 _TOOL_DIR = Path(__file__).resolve().parent
@@ -44,6 +47,18 @@ REVIEW_COVERAGE_FIELDS = {
     "quality_gate_coverage",
     "adversarial_coverage",
 }
+CANONICAL_ADVERSARIAL_CASES = (
+    "zero_one_many",
+    "first_middle_last",
+    "missing_conflicting_metadata",
+    "duplicate_missing_identity",
+    "old_current_representations",
+)
+_FORMAT_CHECKER = FormatChecker()
+_RFC3339_DATE_TIME = re.compile(
+    r"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}"
+    r"(?:\.\d+)?(?:Z|z|[+-]\d{2}:\d{2})$"
+)
 
 
 class ArtifactError(ValueError):
@@ -53,6 +68,8 @@ class ArtifactError(ValueError):
 def load_yaml(path: Path) -> dict[str, Any]:
     try:
         value = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except UnicodeError as exc:
+        raise ArtifactError(f"{path}: cannot read YAML: invalid UTF-8 ({exc})") from exc
     except (OSError, yaml.YAMLError) as exc:
         raise ArtifactError(f"{path}: cannot read YAML: {exc}") from exc
     if not isinstance(value, dict):
@@ -78,12 +95,36 @@ def _format_json_path(parts: Iterable[Any]) -> str:
     return result
 
 
+def _json_path_sort_key(parts: Iterable[Any]) -> tuple[tuple[int, str], ...]:
+    """Sort mixed object/list JSON paths without comparing unlike Python types."""
+    return tuple(
+        (0, str(part)) if isinstance(part, int) else (1, str(part))
+        for part in parts
+    )
+
+
 def schema_errors(data: dict[str, Any], schema_path: Path) -> list[str]:
-    schema = json.loads(schema_path.read_text(encoding="utf-8"))
-    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except UnicodeError as exc:
+        return [f"{schema_path}: invalid schema: invalid UTF-8 ({exc})"]
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"{schema_path}: invalid schema: {exc}"]
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as exc:
+        return [
+            f"{schema_path}: invalid schema: "
+            f"{getattr(exc, 'message', str(exc))}"
+        ]
+    except TypeError as exc:
+        return [f"{schema_path}: invalid schema: {exc}"]
+    validator = Draft202012Validator(schema, format_checker=_FORMAT_CHECKER)
     return [
         f"{_format_json_path(error.absolute_path)}: {error.message}"
-        for error in sorted(validator.iter_errors(data), key=lambda e: list(e.absolute_path))
+        for error in sorted(
+            validator.iter_errors(data), key=lambda e: _json_path_sort_key(e.absolute_path)
+        )
     ]
 
 
@@ -94,6 +135,53 @@ def _duplicate_errors(items: list[dict[str, Any]], field: str, label: str) -> li
 
 def _unknown_refs(refs: Iterable[str], known: set[str], context: str) -> list[str]:
     return [f"{context} references unknown ID {ref}" for ref in refs if ref not in known]
+
+
+def _has_text(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _is_rfc3339(value: Any) -> bool:
+    if not isinstance(value, str) or _RFC3339_DATE_TIME.fullmatch(value) is None:
+        return False
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00").replace("z", "+00:00"))
+    except ValueError:
+        return False
+    return True
+
+
+_FORMAT_CHECKER.checks("date-time")(_is_rfc3339)
+
+
+def _fixture_path(
+    fixture: str, *, artifact_path: Path | None, repository: str | None
+) -> tuple[Path | None, str | None]:
+    """Resolve a compatibility fixture without allowing it to escape its project."""
+    if not _has_text(fixture):
+        return None, "must be a nonblank relative path within the plan or project tree"
+    path = Path(fixture)
+    if path.is_absolute() or ".." in path.parts:
+        return None, "must be a relative path within the plan or project tree"
+
+    roots: list[Path] = []
+    if artifact_path is not None:
+        roots.append(artifact_path.parent)
+        if artifact_path.parent.name == ".factory":
+            roots.append(artifact_path.parent.parent)
+    if repository:
+        repository_path = Path(repository)
+        if repository_path.is_absolute() and repository_path.is_dir():
+            roots.append(repository_path)
+    if artifact_path is None:
+        roots.append(Path.cwd())
+
+    for root in roots:
+        root = root.resolve()
+        candidate = (root / path).resolve()
+        if candidate.is_relative_to(root) and candidate.is_file():
+            return candidate, None
+    return None, "does not exist within the plan or project tree"
 
 
 def validate_spec_semantics(data: dict[str, Any], *, ready: bool = False) -> list[str]:
@@ -261,6 +349,7 @@ def validate_work_plan_semantics(
 
     source = data.get("source", {})
     source_kind = source.get("artifact_kind")
+    brownfield = source_kind == "change_spec" or source.get("change_mode") == "existing_system"
     declared_source = source.get("artifact_path")
     source_path: Path | None = None
     if declared_source:
@@ -285,7 +374,9 @@ def validate_work_plan_semantics(
             source_data = load_yaml(source_path)
             detected_kind = (
                 "change_spec" if "change_schema_version" in source_data
-                else "spec" if "schema_version" in source_data.get("meta", {})
+                else "spec"
+                if isinstance(source_data.get("meta"), dict)
+                and "schema_version" in source_data["meta"]
                 else None
             )
             if detected_kind != source_kind:
@@ -294,23 +385,27 @@ def validate_work_plan_semantics(
                 )
             if source_kind == "spec":
                 source_errors = schema_errors(source_data, SCHEMA_ROOT / "spec-v2.schema.json")
-                source_errors.extend(validate_spec_semantics(source_data, ready=True))
+                if not source_errors:
+                    source_errors.extend(validate_spec_semantics(source_data, ready=True))
             elif source_kind == "change_spec":
                 source_errors = schema_errors(
                     source_data, SCHEMA_ROOT / "change-spec-v1.schema.json"
                 )
-                source_errors.extend(validate_change_spec(source_data, ready=True))
+                if not source_errors:
+                    source_errors.extend(validate_change_spec(source_data, ready=True))
             else:
                 source_errors = [f"unsupported source artifact kind: {source_kind!r}"]
             errors.extend(f"source artifact: {error}" for error in source_errors)
-
-            actual_fingerprint = canonical_fingerprint(source_data)
-            if source.get("artifact_fingerprint") != actual_fingerprint:
-                errors.append(
-                    "source.artifact_fingerprint does not match the canonical source "
-                    f"({source.get('artifact_fingerprint')} != {actual_fingerprint})"
-                )
-            if source.get("artifact_kind") == "spec":
+            if source_errors:
+                source_data = {}
+            else:
+                actual_fingerprint = canonical_fingerprint(source_data)
+                if source.get("artifact_fingerprint") != actual_fingerprint:
+                    errors.append(
+                        "source.artifact_fingerprint does not match the canonical source "
+                        f"({source.get('artifact_fingerprint')} != {actual_fingerprint})"
+                    )
+            if source_data and source.get("artifact_kind") == "spec":
                 frs = source_data.get("functional_requirements", [])
                 criteria = source_data.get("acceptance_criteria", [])
                 known_intent = {item.get("id") for item in frs if item.get("id")}
@@ -346,7 +441,7 @@ def validate_work_plan_semantics(
                     if item.get("resolution") == "invisible_infrastructure"
                     and item.get("fr_id") in target_intent
                 }
-            elif source.get("artifact_kind") == "change_spec":
+            elif source_data and source.get("artifact_kind") == "change_spec":
                 criteria = source_data.get("acceptance_criteria", [])
                 known_intent = {item.get("id") for item in criteria if item.get("id")}
                 known_acceptance = set(known_intent)
@@ -523,12 +618,22 @@ def validate_work_plan_semantics(
             "source preserved behaviors without invariant mapping: "
             f"{sorted(missing_preserved_behaviors)}"
         )
+    fabricated_preserved_behaviors = (
+        planned_preserved_behavior_ids - source_preserved_behavior_ids
+    )
+    if fabricated_preserved_behaviors:
+        errors.append(
+            "invariant mappings reference preserved behaviors absent from source: "
+            f"{sorted(fabricated_preserved_behaviors)}"
+        )
 
     affected_consumer_packages: dict[str, set[str]] = {}
     for contract in contracts:
         contract_id = contract.get("id", "<contract>")
         errors.extend(_unknown_refs(contract.get("invariant_ids", []), invariant_ids, contract_id))
         consumers = contract.get("consumers", [])
+        if brownfield and not consumers:
+            errors.append(f"{contract_id} must name at least one structured consumer")
         counts = Counter(c.get("layer") for c in consumers if c.get("layer") in STANDARD_CONSUMER_LAYERS)
         missing_layers = STANDARD_CONSUMER_LAYERS - set(counts)
         duplicate_layers = {layer for layer, count in counts.items() if count > 1}
@@ -536,9 +641,23 @@ def validate_work_plan_semantics(
             errors.append(f"{contract_id} omits consumer layers: {sorted(missing_layers)}")
         if duplicate_layers:
             errors.append(f"{contract_id} duplicates consumer layers: {sorted(duplicate_layers)}")
-        for consumer in consumers:
+        consumer_keys: set[tuple[Any, Any]] = set()
+        for index, consumer in enumerate(consumers):
             layer = consumer.get("layer")
-            consumer_ref = f"{contract_id}:{layer}:{consumer.get('location', '')}"
+            location = consumer.get("location", "")
+            if brownfield:
+                for field in ("layer", "location", "status", "evidence"):
+                    if not _has_text(consumer.get(field)):
+                        errors.append(
+                            f"{contract_id}.consumers[{index}].{field} must be nonblank"
+                        )
+            key = (layer, location)
+            if (ready or handoff) and key in consumer_keys:
+                errors.append(
+                    f"{contract_id} duplicates consumer identity {layer!r}:{location!r}"
+                )
+            consumer_keys.add(key)
+            consumer_ref = f"{contract_id}:{layer}:{location}"
             refs = consumer.get("work_package_ids", [])
             errors.extend(_unknown_refs(refs, package_ids, f"{contract_id}:{layer}"))
             if consumer.get("status") == "affected":
@@ -635,6 +754,31 @@ def validate_work_plan_semantics(
             )
         )
 
+    if ready or handoff:
+        for version in compatibility.get("versions", []):
+            if version.get("immutable_on_read") is not True:
+                errors.append(
+                    "compatibility version "
+                    f"{version.get('version')!r} must set immutable_on_read: true"
+                )
+            fixture = version.get("fixture", "")
+            fixture_path, fixture_error = _fixture_path(
+                fixture,
+                artifact_path=artifact_path,
+                repository=source.get("repository"),
+            )
+            if fixture_error:
+                errors.append(f"compatibility fixture {fixture!r} {fixture_error}")
+                continue
+            actual_fingerprint = "sha256:" + hashlib.sha256(
+                fixture_path.read_bytes()
+            ).hexdigest()
+            if version.get("fixture_fingerprint") != actual_fingerprint:
+                errors.append(
+                    f"compatibility fixture {fixture!r} fingerprint does not match "
+                    f"({version.get('fixture_fingerprint')} != {actual_fingerprint})"
+                )
+
     verified_intent: set[str] = set()
     verified_acceptance: set[str] = set()
     verified_invariants: set[str] = set()
@@ -664,21 +808,82 @@ def validate_work_plan_semantics(
         if missing:
             errors.append(f"{label} without verification coverage: {sorted(missing)}")
 
-    for case in data.get("adversarial_matrix", []):
+    matrix = data.get("adversarial_matrix", [])
+    for case in matrix:
         case_name = case.get("case", "<case>")
         refs = case.get("verification_ids", [])
         errors.extend(_unknown_refs(refs, verify_ids, f"adversarial case {case_name}"))
         if case.get("applicability") == "required" and not refs:
             errors.append(f"required adversarial case {case_name} has no verification")
-        if case.get("applicability") == "not_applicable" and not case.get("reason"):
+        if case.get("applicability") == "not_applicable" and not _has_text(case.get("reason")):
             errors.append(f"not-applicable adversarial case {case_name} needs a reason")
 
     if ready or handoff:
+        for case in matrix:
+            case_name = case.get("case", "<case>")
+            if not _has_text(case_name):
+                errors.append(f"adversarial case {case_name!r} must have a nonblank name")
+            if case.get("applicability") != "not_applicable" and not _has_text(
+                case.get("reason")
+            ):
+                errors.append(f"adversarial case {case_name} needs a nonblank reason")
+        matrix_names = [case.get("case") for case in matrix]
+        duplicate_matrix_cases = sorted(
+            case_name
+            for case_name, count in Counter(matrix_names).items()
+            if case_name and count > 1
+        )
+        if duplicate_matrix_cases:
+            errors.append(
+                "duplicate adversarial matrix cases: "
+                f"{duplicate_matrix_cases}"
+            )
+        present_matrix_cases = set(matrix_names)
+        missing_matrix_cases = sorted(
+            set(CANONICAL_ADVERSARIAL_CASES) - present_matrix_cases
+        )
+        if missing_matrix_cases:
+            errors.append(
+                "adversarial_matrix is missing canonical cases: "
+                f"{missing_matrix_cases}"
+            )
+        conflicts = data.get("phase_plan", {}).get("value_build_conflicts", [])
+        unresolved_conflicts = [
+            conflict.get("conflict", "<unnamed>")
+            for conflict in conflicts
+            if isinstance(conflict, dict) and conflict.get("status") != "resolved"
+        ]
+        unresolved_conflicts.extend(
+            "<malformed conflict>"
+            for conflict in conflicts
+            if not isinstance(conflict, dict)
+        )
+        if unresolved_conflicts:
+            errors.append(
+                "unresolved phase_plan.value_build_conflicts block readiness: "
+                f"{unresolved_conflicts}"
+            )
+        if not matrix:
+            errors.append("ready work plans require a nonempty adversarial_matrix")
+        elif not any(case.get("applicability") == "required" for case in matrix):
+            errors.append(
+                "ready adversarial_matrix requires at least one required case with verification coverage"
+            )
         review = data.get("readiness_review", {})
-        if not review.get("reviewer"):
-            errors.append("readiness_review.reviewer is required before implementation")
-        if not review.get("reviewed_at"):
-            errors.append("readiness_review.reviewed_at is required before implementation")
+        reviewer = review.get("reviewer")
+        reviewed_at = review.get("reviewed_at")
+        if not _has_text(reviewer):
+            if reviewer in (None, ""):
+                errors.append("readiness_review.reviewer is required before implementation")
+            else:
+                errors.append("readiness_review.reviewer must be nonblank")
+        if not _has_text(reviewed_at):
+            if reviewed_at in (None, ""):
+                errors.append("readiness_review.reviewed_at is required before implementation")
+            else:
+                errors.append("readiness_review.reviewed_at must be nonblank")
+        elif not _is_rfc3339(reviewed_at):
+            errors.append("readiness_review.reviewed_at must be an RFC3339 date-time")
         for field in REVIEW_COVERAGE_FIELDS:
             if review.get(field) != "pass":
                 errors.append(f"readiness_review.{field} must be pass")
@@ -692,12 +897,12 @@ def validate_work_plan_semantics(
         for item in verification:
             if item.get("result") != "pass":
                 errors.append(f"{item.get('id')} is not passing at handoff")
-            if not item.get("evidence"):
+            if not _has_text(item.get("evidence")):
                 errors.append(f"{item.get('id')} has no evidence at handoff")
         for gate in data.get("quality_gates", []):
             if gate.get("required") and gate.get("result") != "pass":
                 errors.append(f"required quality gate {gate.get('name')} is not passing")
-            if gate.get("required") and not gate.get("result_evidence"):
+            if gate.get("required") and not _has_text(gate.get("result_evidence")):
                 errors.append(
                     f"required quality gate {gate.get('name')} has no result evidence"
                 )
@@ -705,10 +910,20 @@ def validate_work_plan_semantics(
         handoff_data = data.get("handoff", {})
         if handoff_data.get("review_result") != "pass":
             errors.append("handoff.review_result must be pass")
-        if not handoff_data.get("independent_reviewer"):
-            errors.append("handoff.independent_reviewer is required")
-        if not handoff_data.get("reviewed_at"):
-            errors.append("handoff.reviewed_at is required")
+        independent_reviewer = handoff_data.get("independent_reviewer")
+        handoff_reviewed_at = handoff_data.get("reviewed_at")
+        if not _has_text(independent_reviewer):
+            if independent_reviewer in (None, ""):
+                errors.append("handoff.independent_reviewer is required")
+            else:
+                errors.append("handoff.independent_reviewer must be nonblank")
+        if not _has_text(handoff_reviewed_at):
+            if handoff_reviewed_at in (None, ""):
+                errors.append("handoff.reviewed_at is required")
+            else:
+                errors.append("handoff.reviewed_at must be nonblank")
+        elif not _is_rfc3339(handoff_reviewed_at):
+            errors.append("handoff.reviewed_at must be an RFC3339 date-time")
         for field in ("base_commit", "head_commit"):
             if not handoff_data.get(field):
                 errors.append(f"handoff.{field} is required")
@@ -773,18 +988,23 @@ def validate_artifact(
         else:
             kind = "spec"
     if kind == "spec":
-        version = data.get("meta", {}).get("schema_version")
-        if version is None:
+        meta = data.get("meta")
+        if isinstance(meta, dict) and "schema_version" not in meta:
             return data, ["legacy implicit-v1 spec: migrate to schema v2 before canonical use"]
+        errors = schema_errors(data, SCHEMA_ROOT / "spec-v2.schema.json")
+        if errors:
+            return data, errors
+        version = meta.get("schema_version") if isinstance(meta, dict) else None
         if version != 2:
             return data, [f"unsupported spec schema version {version}; this tool supports 2"]
-        errors = schema_errors(data, SCHEMA_ROOT / "spec-v2.schema.json")
         errors.extend(validate_spec_semantics(data, ready=ready))
     elif kind == "work-plan":
+        errors = schema_errors(data, SCHEMA_ROOT / "work-plan-v1.schema.json")
+        if errors:
+            return data, errors
         version = data.get("plan_version")
         if version != 1:
             return data, [f"unsupported work-plan version {version}; this tool supports 1"]
-        errors = schema_errors(data, SCHEMA_ROOT / "work-plan-v1.schema.json")
         errors.extend(
             validate_work_plan_semantics(
                 data, artifact_path=path, ready=ready, handoff=handoff
@@ -1099,27 +1319,114 @@ def validate_change_spec(data: dict[str, Any], *, ready: bool = False) -> list[s
     contracts = data.get("changed_contracts", [])
     criteria = data.get("acceptance_criteria", [])
     preserved = data.get("preserved_behaviors", [])
+    if errors:
+        return errors
     contract_ids = {c.get("id") for c in contracts if c.get("id")}
     criterion_ids = {a.get("id") for a in criteria if a.get("id")}
     preserved_ids = {p.get("id") for p in preserved if p.get("id")}
+    criteria_by_id = {item.get("id"): item for item in criteria if item.get("id")}
+    preserved_by_id = {item.get("id"): item for item in preserved if item.get("id")}
     errors.extend(_duplicate_errors(data.get("changed_contracts", []), "id", "changed-contract ID"))
     errors.extend(_duplicate_errors(criteria, "id", "change acceptance ID"))
     errors.extend(_duplicate_errors(preserved, "id", "preserved-behavior ID"))
+    for contract in contracts:
+        contract_id = contract.get("id", "<contract>")
+        consumers = contract.get("consumers", [])
+        if not consumers:
+            errors.append(f"{contract_id} must name at least one structured consumer")
+            continue
+        consumer_keys: set[tuple[Any, Any]] = set()
+        for index, consumer in enumerate(consumers):
+            if not isinstance(consumer, dict):
+                errors.append(f"{contract_id}.consumers[{index}] must be a structured object")
+                continue
+            for field in ("layer", "location", "impact"):
+                if not _has_text(consumer.get(field)):
+                    errors.append(
+                        f"{contract_id}.consumers[{index}].{field} must be nonblank"
+                    )
+            verification_ids = consumer.get("verification_acceptance_ids")
+            if not isinstance(verification_ids, list):
+                errors.append(
+                    f"{contract_id}.consumers[{index}].verification_acceptance_ids "
+                    "must be an array"
+                )
+                verification_ids = []
+            duplicate_verification_ids = sorted(
+                identifier
+                for identifier, count in Counter(verification_ids).items()
+                if count > 1
+            )
+            if duplicate_verification_ids:
+                errors.append(
+                    f"{contract_id}.consumers[{index}].verification_acceptance_ids "
+                    f"contains duplicates: {duplicate_verification_ids}"
+                )
+            errors.extend(
+                _unknown_refs(
+                    verification_ids,
+                    criterion_ids,
+                    f"{contract_id}.consumers[{index}].verification_acceptance_ids",
+                )
+            )
+            key = (consumer.get("layer"), consumer.get("location"))
+            if ready and key in consumer_keys:
+                errors.append(
+                    f"{contract_id} duplicates consumer identity "
+                    f"{consumer.get('layer')!r}:{consumer.get('location')!r}"
+                )
+            consumer_keys.add(key)
     for item in criteria:
-        errors.extend(_unknown_refs(item.get("changed_contract_ids", []), contract_ids, item.get("id", "change AC")))
-        errors.extend(_unknown_refs(item.get("preserved_behavior_ids", []), preserved_ids, item.get("id", "change AC")))
+        criterion_id = item.get("id", "change AC")
+        preserved_ids_for_criterion = item.get("preserved_behavior_ids", [])
+        errors.extend(_unknown_refs(item.get("changed_contract_ids", []), contract_ids, criterion_id))
+        errors.extend(_unknown_refs(preserved_ids_for_criterion, preserved_ids, criterion_id))
+        if preserved_ids_for_criterion and item.get("kind") != "regression":
+            errors.append(f"{criterion_id} names preserved behaviors but is not a regression criterion")
+        for preserved_id in preserved_ids_for_criterion:
+            preserved_behavior = preserved_by_id.get(preserved_id)
+            if (
+                preserved_behavior is not None
+                and item.get("id") not in preserved_behavior.get("regression_acceptance_ids", [])
+            ):
+                errors.append(
+                    f"{criterion_id} names {preserved_id}, but {preserved_id} does not name {item.get('id')}"
+                )
     for item in preserved:
-        errors.extend(_unknown_refs(item.get("regression_acceptance_ids", []), criterion_ids, item.get("id", "preserved behavior")))
+        preserved_id = item.get("id", "preserved behavior")
+        for acceptance_id in item.get("regression_acceptance_ids", []):
+            criterion = criteria_by_id.get(acceptance_id)
+            if criterion is None:
+                errors.extend(_unknown_refs([acceptance_id], criterion_ids, preserved_id))
+                continue
+            if criterion.get("kind") != "regression":
+                errors.append(
+                    f"{preserved_id} regression acceptance ID {acceptance_id} must reference a regression criterion"
+                )
+            if item.get("id") not in criterion.get("preserved_behavior_ids", []):
+                errors.append(
+                    f"{preserved_id} names {acceptance_id}, but {acceptance_id} does not name {item.get('id')}"
+                )
     if data.get("compatibility", {}).get("classification") == "breaking":
         if not data.get("compatibility", {}).get("migration"):
             errors.append("breaking change requires a migration plan")
         if not data.get("compatibility", {}).get("rollback"):
             errors.append("breaking change requires rollback or recovery")
     if ready:
-        if not data.get("baseline", {}).get("commit"):
+        if not _has_text(data.get("baseline", {}).get("commit")):
             errors.append("baseline.commit is required before implementation")
-        if any(not c.get("preserved_invariant") for c in data.get("changed_contracts", [])):
+        if any(
+            not _has_text(c.get("preserved_invariant"))
+            for c in data.get("changed_contracts", [])
+        ):
             errors.append("every changed contract needs a preserved invariant")
+        for item in preserved:
+            regression_ids = item.get("regression_acceptance_ids", [])
+            if not regression_ids:
+                errors.append(
+                    f"{item.get('id', 'preserved behavior')} requires nonempty regression_acceptance_ids before implementation"
+                )
+                continue
     _ = contract_ids
     return errors
 

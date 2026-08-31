@@ -53,7 +53,7 @@
           "id": {"type": "string", "pattern": "^PRESERVE-[0-9]+$"},
           "behavior": {"type": "string", "minLength": 1},
           "evidence": {"type": "string", "minLength": 1},
-          "regression_acceptance_ids": {"type": "array", "items": {"$ref": "#/$defs/acId"}}
+          "regression_acceptance_ids": {"type": "array", "items": {"$ref": "#/$defs/acId"}, "uniqueItems": true}
         },
         "additionalProperties": false
       }
@@ -99,7 +99,7 @@
           "kind": {"enum": ["change", "regression", "migration", "rollback"]},
           "condition": {"type": "string", "minLength": 1},
           "changed_contract_ids": {"type": "array", "items": {"type": "string"}},
-          "preserved_behavior_ids": {"type": "array", "items": {"type": "string"}},
+          "preserved_behavior_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
           "provenance": {"$ref": "#/$defs/provenance"}
         },
         "additionalProperties": false

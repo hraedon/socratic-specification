@@ -223,6 +223,7 @@
     },
     "adversarial_matrix": {
       "type": "array",
+      "uniqueItems": true,
       "items": {
         "type": "object",
         "required": ["case", "applicability", "reason", "verification_ids"],
@@ -239,8 +240,17 @@
       "type": "object",
       "required": ["reviewer", "reviewed_at", "invariant_coverage", "consumer_coverage", "compatibility_coverage", "fr_ac_coverage", "work_package_coverage", "verification_coverage", "quality_gate_coverage", "adversarial_coverage", "unresolved_findings"],
       "properties": {
-        "reviewer": {"type": "string"},
-        "reviewed_at": {"type": "string"},
+        "reviewer": {"type": "string", "pattern": "^$|\\S"},
+        "reviewed_at": {
+          "anyOf": [
+            {"const": ""},
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2})$"
+            }
+          ]
+        },
         "invariant_coverage": {"enum": ["pending", "pass", "fail"]},
         "consumer_coverage": {"enum": ["pending", "pass", "fail"]},
         "compatibility_coverage": {"enum": ["pending", "pass", "fail"]},
@@ -268,8 +278,17 @@
         "prior_findings_and_regressions": {"type": "array", "items": {"type": "string"}},
         "commands_run": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
         "known_limitations": {"type": "array", "items": {"type": "string"}},
-        "independent_reviewer": {"type": "string"},
-        "reviewed_at": {"type": "string"},
+        "independent_reviewer": {"type": "string", "pattern": "^$|\\S"},
+        "reviewed_at": {
+          "anyOf": [
+            {"const": ""},
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2})$"
+            }
+          ]
+        },
         "review_result": {"enum": ["pending", "pass", "fail"]}
       },
       "additionalProperties": false

@@ -55,7 +55,7 @@ compatibility:
   migration: Normalize v1 entries to deterministic IDs in memory and emit v2 only on an explicit save.
   rollback: Restore the pre-migration snapshot; v1 originals remain immutable.
   deprecation_or_communication: Document that newly saved snapshots require v2 readers.
-  historical_fixtures: [tests/fixtures/snapshot-v1.yaml, tests/fixtures/snapshot-v2.yaml]
+  historical_fixtures: [snapshot-v1.yaml, snapshot-v2.yaml]
 acceptance_criteria:
   - id: CAC-01
     kind: change

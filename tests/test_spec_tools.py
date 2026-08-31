@@ -2,15 +2,20 @@ from __future__ import annotations
 
 from copy import deepcopy
 from pathlib import Path
+import subprocess
+import sys
 
+import pytest
 import yaml
 
 from scripts.spec_tools import (
     canonical_fingerprint,
+    CANONICAL_ADVERSARIAL_CASES,
     render_change_spec,
     render_decision_brief,
     render_spec,
     validate_artifact,
+    validate_change_spec,
     validate_spec_semantics,
     validate_work_plan_semantics,
 )
@@ -89,6 +94,100 @@ def test_valid_work_plan_passes_readiness_gate() -> None:
     assert errors == []
 
 
+@pytest.mark.parametrize("case_name", CANONICAL_ADVERSARIAL_CASES)
+def test_ready_work_plan_requires_each_canonical_adversarial_case(case_name: str) -> None:
+    plan = yaml.safe_load((FIXTURES / "valid-work-plan.yaml").read_text())
+    plan["adversarial_matrix"] = [
+        case for case in plan["adversarial_matrix"] if case["case"] != case_name
+    ]
+
+    errors = validate_work_plan_semantics(plan, ready=True)
+
+    assert any(
+        "adversarial_matrix is missing canonical cases" in error and case_name in error
+        for error in errors
+    )
+
+
+def test_ready_work_plan_rejects_duplicate_adversarial_case_names() -> None:
+    plan = yaml.safe_load((FIXTURES / "valid-work-plan.yaml").read_text())
+    plan["adversarial_matrix"].append(deepcopy(plan["adversarial_matrix"][0]))
+
+    errors = validate_work_plan_semantics(plan, ready=True)
+
+    assert any("duplicate adversarial matrix cases" in error for error in errors)
+
+
+def test_ready_work_plan_rejects_unjustified_adversarial_non_applicability() -> None:
+    plan = yaml.safe_load((FIXTURES / "valid-work-plan.yaml").read_text())
+    plan["adversarial_matrix"][1]["reason"] = " \t "
+
+    errors = validate_work_plan_semantics(plan, ready=True)
+
+    assert any("not-applicable adversarial case" in error for error in errors)
+
+
+def test_ready_work_plan_requires_immutable_compatibility_reads() -> None:
+    plan = yaml.safe_load((FIXTURES / "valid-work-plan.yaml").read_text())
+    plan["compatibility"] = {
+        "required": True,
+        "rationale": "A historical representation is supported.",
+        "versions": [
+            {
+                "version": 1,
+                "read_behavior": "Read the historical representation.",
+                "write_behavior": "Write the current representation.",
+                "fixture": "missing.yaml",
+                "fixture_fingerprint": "sha256:" + "0" * 64,
+                "immutable_on_read": False,
+            }
+        ],
+        "migration_steps": [],
+    }
+
+    errors = validate_work_plan_semantics(plan, ready=True)
+
+    assert any("must set immutable_on_read: true" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("reviewer", " \t ", "readiness_review.reviewer must be nonblank"),
+        (
+            "reviewed_at",
+            "2026-07-14",
+            "readiness_review.reviewed_at must be an RFC3339 date-time",
+        ),
+        (
+            "reviewed_at",
+            "2026-02-30T00:00:00Z",
+            "readiness_review.reviewed_at must be an RFC3339 date-time",
+        ),
+    ],
+)
+def test_ready_work_plan_rejects_invalid_readiness_review_fields(
+    field: str, value: str, message: str
+) -> None:
+    plan = yaml.safe_load((FIXTURES / "valid-work-plan.yaml").read_text())
+    plan["readiness_review"][field] = value
+
+    errors = validate_work_plan_semantics(plan, ready=True)
+
+    assert message in errors
+
+
+def test_handoff_rejects_whitespace_reviewer_and_non_rfc3339_timestamp() -> None:
+    plan = _completed_work_plan()
+    plan["handoff"]["independent_reviewer"] = "\n"
+    plan["handoff"]["reviewed_at"] = "2026-07-14 01:00:00"
+
+    errors = validate_work_plan_semantics(plan, handoff=True)
+
+    assert "handoff.independent_reviewer must be nonblank" in errors
+    assert "handoff.reviewed_at must be an RFC3339 date-time" in errors
+
+
 def test_valid_change_spec_passes_ready_gate_and_renders() -> None:
     data, errors = validate_artifact(
         FIXTURES / "valid-change-spec.yaml", kind="change-spec", ready=True
@@ -97,6 +196,28 @@ def test_valid_change_spec_passes_ready_gate_and_renders() -> None:
     rendered = render_change_spec(data)
     assert "# Change Specification: Add stable identity to policy entries" in rendered
     assert "Historical snapshots remain readable" in rendered
+
+
+def test_brownfield_change_contract_requires_a_named_structured_consumer() -> None:
+    change = yaml.safe_load((FIXTURES / "valid-change-spec.yaml").read_text())
+    change["changed_contracts"][0]["consumers"] = []
+
+    errors = validate_change_spec(change, ready=True)
+
+    assert "CHANGE-CONTRACT-01 must name at least one structured consumer" in errors
+
+
+@pytest.mark.parametrize("field", ["layer", "location", "impact"])
+def test_brownfield_change_consumer_fields_must_be_nonblank(field: str) -> None:
+    change = yaml.safe_load((FIXTURES / "valid-change-spec.yaml").read_text())
+    change["changed_contracts"][0]["consumers"][0][field] = " \t "
+
+    errors = validate_change_spec(change, ready=True)
+
+    assert any(
+        f"CHANGE-CONTRACT-01.consumers[0].{field} must be nonblank" in error
+        for error in errors
+    )
 
 
 def _valid_change_work_plan() -> dict:
@@ -169,12 +290,12 @@ def _valid_change_work_plan() -> dict:
                 "read_behavior": "Read and preserve semantics.",
                 "write_behavior": "Write only on explicit save.",
                 "fixture": fixture,
-                "fixture_fingerprint": "sha256:" + "0" * 64,
+                "fixture_fingerprint": fingerprint,
                 "immutable_on_read": True,
             }
-            for version, fixture in (
-                (1, "tests/fixtures/snapshot-v1.yaml"),
-                (2, "tests/fixtures/snapshot-v2.yaml"),
+            for version, fixture, fingerprint in (
+                (1, "snapshot-v1.yaml", "sha256:0ef4ef933c8e42efe9dccbebc2c38a90188e9c769b6d70a25983890acb5be925"),
+                (2, "snapshot-v2.yaml", "sha256:e1c6511e6ac1c3cf134d664c42e7e184992a23658e562942bd76918074de5ac5"),
             )
         ],
         "migration_steps": [
@@ -202,11 +323,30 @@ def _valid_change_work_plan() -> dict:
 
 def test_work_plan_can_reference_change_spec_without_fake_frs(tmp_path: Path) -> None:
     plan_path = tmp_path / "change-work-plan.yaml"
+    for fixture in ("snapshot-v1.yaml", "snapshot-v2.yaml"):
+        (tmp_path / fixture).write_text((FIXTURES / fixture).read_text())
     plan_path.write_text(yaml.safe_dump(_valid_change_work_plan(), sort_keys=False))
 
     _, errors = validate_artifact(plan_path, kind="work-plan", ready=True)
 
     assert errors == []
+
+
+def test_brownfield_work_plan_consumers_must_be_named_and_structured() -> None:
+    plan = _valid_change_work_plan()
+    next(
+        consumer
+        for consumer in plan["changed_contracts"][0]["consumers"]
+        if consumer["layer"] == "domain_model"
+    )["location"] = " \t "
+
+    errors = validate_work_plan_semantics(plan, ready=True)
+
+    assert any(
+        "CHANGE-CONTRACT-01.consumers" in error
+        and ".location must be nonblank" in error
+        for error in errors
+    )
 
 
 def test_ready_work_plan_requires_verification_coverage() -> None:
@@ -223,6 +363,249 @@ def test_ready_work_plan_requires_verification_coverage() -> None:
     assert any("target acceptance criteria without verification coverage" in error for error in errors)
     assert any("invariants without verification coverage" in error for error in errors)
     assert any("changed contracts without verification coverage" in error for error in errors)
+
+
+def test_ready_work_plan_rejects_missing_or_rewritten_compatibility_fixture(tmp_path: Path) -> None:
+    plan = _valid_change_work_plan()
+    plan_path = tmp_path / "work-plan.yaml"
+    plan_path.write_text(yaml.safe_dump(plan, sort_keys=False))
+
+    _, missing_errors = validate_artifact(plan_path, kind="work-plan", ready=True)
+    assert any("snapshot-v1.yaml' does not exist" in error for error in missing_errors)
+
+    for fixture in ("snapshot-v1.yaml", "snapshot-v2.yaml"):
+        (tmp_path / fixture).write_text((FIXTURES / fixture).read_text())
+    (tmp_path / "snapshot-v1.yaml").write_text("rewritten\n")
+    _, fingerprint_errors = validate_artifact(plan_path, kind="work-plan", ready=True)
+    assert any("snapshot-v1.yaml' fingerprint does not match" in error for error in fingerprint_errors)
+
+
+def test_ready_work_plan_rejects_fixture_outside_its_tree() -> None:
+    plan = yaml.safe_load((FIXTURES / "valid-work-plan.yaml").read_text())
+    plan["compatibility"] = {
+        "required": True,
+        "rationale": "Compatibility is required.",
+        "versions": [{
+            "version": 1,
+            "read_behavior": "Read it.",
+            "write_behavior": "Do not rewrite it.",
+            "fixture": "../outside.yaml",
+            "fixture_fingerprint": "sha256:" + "0" * 64,
+            "immutable_on_read": True,
+        }],
+        "migration_steps": [],
+    }
+
+    errors = validate_work_plan_semantics(plan, ready=True)
+
+    assert any("must be a relative path within the plan or project tree" in error for error in errors)
+
+
+def test_ready_work_plan_requires_resolved_conflicts_and_adversarial_coverage() -> None:
+    plan = yaml.safe_load((FIXTURES / "valid-work-plan.yaml").read_text())
+    plan["phase_plan"]["value_build_conflicts"] = [{"conflict": "scope order"}]
+    plan["adversarial_matrix"] = []
+
+    errors = validate_work_plan_semantics(plan, ready=True)
+
+    assert any("unresolved phase_plan.value_build_conflicts" in error for error in errors)
+    assert any("nonempty adversarial_matrix" in error for error in errors)
+
+    plan["phase_plan"]["value_build_conflicts"] = []
+    plan["adversarial_matrix"] = [
+        {
+            "case": "not-needed",
+            "applicability": "not_applicable",
+            "reason": "Not applicable to this plan.",
+            "verification_ids": [],
+        }
+    ]
+    errors = validate_work_plan_semantics(plan, ready=True)
+
+    assert any("requires at least one required case" in error for error in errors)
+
+
+def test_ready_work_plan_reports_malformed_value_build_conflict() -> None:
+    plan = yaml.safe_load((FIXTURES / "valid-work-plan.yaml").read_text())
+    plan["phase_plan"]["value_build_conflicts"] = ["malformed"]
+
+    errors = validate_work_plan_semantics(plan, ready=True)
+
+    assert any("<malformed conflict>" in error for error in errors)
+
+
+def test_ready_change_spec_requires_regression_acceptance_for_preserved_behavior() -> None:
+    change = yaml.safe_load((FIXTURES / "valid-change-spec.yaml").read_text())
+    change["preserved_behaviors"][0]["regression_acceptance_ids"] = []
+
+    errors = validate_change_spec(change, ready=True)
+
+    assert any("requires nonempty regression_acceptance_ids" in error for error in errors)
+
+    change["preserved_behaviors"][0]["regression_acceptance_ids"] = ["CAC-01"]
+    errors = validate_change_spec(change, ready=True)
+
+    assert any("must reference a regression criterion" in error for error in errors)
+
+
+def test_preserved_behavior_regression_links_are_bidirectional() -> None:
+    change = yaml.safe_load((FIXTURES / "valid-change-spec.yaml").read_text())
+    change["acceptance_criteria"][1]["preserved_behavior_ids"] = []
+
+    errors = validate_change_spec(change, ready=True)
+
+    assert any("PRESERVE-01 names CAC-02, but CAC-02 does not name PRESERVE-01" in error for error in errors)
+
+    change = yaml.safe_load((FIXTURES / "valid-change-spec.yaml").read_text())
+    change["acceptance_criteria"][0]["preserved_behavior_ids"] = ["PRESERVE-01"]
+
+    errors = validate_change_spec(change, ready=True)
+
+    assert any("CAC-01 names preserved behaviors but is not a regression criterion" in error for error in errors)
+    assert any("CAC-01 names PRESERVE-01, but PRESERVE-01 does not name CAC-01" in error for error in errors)
+
+
+def test_preserved_behavior_link_arrays_must_be_unique() -> None:
+    change = yaml.safe_load((FIXTURES / "valid-change-spec.yaml").read_text())
+    change["preserved_behaviors"][0]["regression_acceptance_ids"].append("CAC-02")
+    change["acceptance_criteria"][1]["preserved_behavior_ids"].append("PRESERVE-01")
+
+    errors = validate_change_spec(change, ready=True)
+
+    assert any("$.preserved_behaviors[0].regression_acceptance_ids" in error for error in errors)
+    assert any("$.acceptance_criteria[1].preserved_behavior_ids" in error for error in errors)
+    assert all("has non-unique elements" in error for error in errors)
+
+
+def test_change_plan_rejects_missing_and_fabricated_preserved_behavior_mappings() -> None:
+    plan = _valid_change_work_plan()
+    plan["invariants"][0]["source_preserved_behavior_ids"] = []
+
+    errors = validate_work_plan_semantics(plan)
+
+    assert any("source preserved behaviors without invariant mapping" in error for error in errors)
+
+    plan["invariants"][0]["source_preserved_behavior_ids"] = ["PRESERVE-01", "PRESERVE-99"]
+    errors = validate_work_plan_semantics(plan)
+
+    assert any(
+        "invariant mappings reference preserved behaviors absent from source" in error
+        for error in errors
+    )
+
+
+def test_source_schema_errors_stop_nested_source_extraction(tmp_path: Path) -> None:
+    source = yaml.safe_load((FIXTURES / "valid-change-spec.yaml").read_text())
+    source["acceptance_criteria"] = [None]
+    source_path = tmp_path / "source.yaml"
+    source_path.write_text(yaml.safe_dump(source, sort_keys=False))
+    plan = _valid_change_work_plan()
+    plan["source"]["artifact_path"] = str(source_path)
+    plan["source"]["artifact_fingerprint"] = "sha256:" + "0" * 64
+    plan_path = tmp_path / "plan.yaml"
+    plan_path.write_text(yaml.safe_dump(plan, sort_keys=False))
+
+    _, errors = validate_artifact(plan_path, kind="work-plan")
+
+    assert any("source artifact: $.acceptance_criteria[0]: None is not of type 'object'" in error for error in errors)
+    assert not any("source historical fixtures" in error for error in errors)
+
+    source = yaml.safe_load((FIXTURES / "valid-change-spec.yaml").read_text())
+    source["baseline"] = []
+    source_path.write_text(yaml.safe_dump(source, sort_keys=False))
+    _, errors = validate_artifact(plan_path, kind="work-plan")
+
+    assert any("source artifact: $.baseline: [] is not of type 'object'" in error for error in errors)
+
+    source = yaml.safe_load((FIXTURES / "valid-spec-v2.yaml").read_text())
+    source["meta"] = None
+    source_path.write_text(yaml.safe_dump(source, sort_keys=False))
+    plan = yaml.safe_load((FIXTURES / "valid-work-plan.yaml").read_text())
+    plan["source"]["artifact_path"] = str(source_path)
+    plan["source"]["artifact_fingerprint"] = "sha256:" + "0" * 64
+    plan_path.write_text(yaml.safe_dump(plan, sort_keys=False))
+    _, errors = validate_artifact(plan_path, kind="work-plan")
+
+    assert any("source artifact: $.meta: None is not of type 'object'" in error for error in errors)
+
+
+def test_handoff_rejects_whitespace_only_verification_and_gate_evidence() -> None:
+    plan = yaml.safe_load((FIXTURES / "valid-work-plan.yaml").read_text())
+    for verification in plan["verification"]:
+        verification.update({"result": "pass", "evidence": " \t "})
+    plan["quality_gates"] = [{
+        "name": "Tests",
+        "command": "pytest",
+        "evidence": "Configured test suite.",
+        "required": True,
+        "result": "pass",
+        "result_evidence": "\n",
+    }]
+
+    errors = validate_work_plan_semantics(plan, handoff=True)
+
+    assert any("VERIFY-01 has no evidence at handoff" in error for error in errors)
+    assert any("required quality gate Tests has no result evidence" in error for error in errors)
+
+
+def test_validate_cli_reports_malformed_yaml_and_type_errors_without_traceback(tmp_path: Path) -> None:
+    malformed_path = tmp_path / "malformed.yaml"
+    malformed_path.write_text("meta: [unterminated\n")
+    malformed = subprocess.run(
+        [sys.executable, "scripts/spec_tools.py", "validate", str(malformed_path)],
+        cwd=FIXTURES.parent.parent,
+        capture_output=True,
+        text=True,
+    )
+    assert malformed.returncode != 0
+    assert str(malformed_path) in malformed.stderr
+    assert "cannot read YAML" in malformed.stderr
+    assert "Traceback" not in malformed.stderr
+
+    wrong_type_path = tmp_path / "wrong-type.yaml"
+    wrong_type_path.write_text("meta: invalid\n")
+    wrong_type = subprocess.run(
+        [sys.executable, "scripts/spec_tools.py", "validate", str(wrong_type_path)],
+        cwd=FIXTURES.parent.parent,
+        capture_output=True,
+        text=True,
+    )
+    assert wrong_type.returncode == 1
+    assert str(wrong_type_path) in wrong_type.stderr
+    assert "$.meta" in wrong_type.stderr
+    assert "Traceback" not in wrong_type.stderr
+
+
+def test_validate_cli_reports_invalid_utf8_without_traceback(tmp_path: Path) -> None:
+    invalid_path = tmp_path / "invalid-utf8.yaml"
+    invalid_path.write_bytes(b"meta: \xff\n")
+
+    result = subprocess.run(
+        [sys.executable, "scripts/spec_tools.py", "validate", str(invalid_path)],
+        cwd=FIXTURES.parent.parent,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert f"{invalid_path}: cannot read YAML: invalid UTF-8" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_validate_reports_invalid_schema_json_with_path(
+    monkeypatch, tmp_path: Path
+) -> None:
+    schema_root = tmp_path / "schemas"
+    schema_root.mkdir()
+    (schema_root / "spec-v2.schema.json").write_text("{not-json")
+    monkeypatch.setattr("scripts.spec_tools.SCHEMA_ROOT", schema_root)
+
+    _, errors = validate_artifact(FIXTURES / "valid-spec-v2.yaml", kind="spec")
+
+    assert any(
+        f"{schema_root / 'spec-v2.schema.json'}: invalid schema:" in error
+        for error in errors
+    )
 
 
 def test_work_plan_consumer_mapping_is_bidirectional() -> None:

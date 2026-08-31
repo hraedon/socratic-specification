@@ -1,4 +1,4 @@
-case_version: 1
+case_version: 2
 id: mobile-offline-flow
 mode: greenfield
 purpose: Verify Mobile activation, offline semantics, permissions, and readable flow confirmation.

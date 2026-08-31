@@ -1,0 +1,24 @@
+metrics_version: 2
+session_key: session-opaque-001
+project_key: project-opaque-001
+mode: unsupported
+started_at: "2026-08-30T12:00:00Z"
+highest_step: 8
+rounds_completed: -1
+human_questions: -1
+human_corrections: -1
+desired_level: 0
+achieved_level: 4
+reached_synthesis: true
+time_to_synthesis_seconds: -1
+spec_word_count: -1
+decision_brief_corrected: false
+work_plan_revisions: -1
+post_implementation_plan_revisions: -1
+implementation_human_decisions: -1
+defects:
+  - class: unsupported
+    count: 0
+acceptance_criteria_revisions: -1
+time_to_first_useful_delivery_seconds: -1
+value_phase_accepted: true

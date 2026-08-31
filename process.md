@@ -232,7 +232,7 @@ Before synthesis, the AI performs a full pass over all accumulated answers, assu
 - **Read-path symmetry** — for every data producer or event log the spec describes (scan history, alert log, audit trail), is there a stated consumer? *Symptom this catches: a `scan_history` table written by an automated job that no FR ever reads.*
 - **Configuration surface** — for every configurable behavior, is the spec explicit that it is deployment-configurable (without prescribing the mechanism)? *Symptom this catches: an `alert_email` field defined with no statement that the operator must be able to set it. The spec must say "the operator can set this"; it must not say "via env var SMTP_HOST".*
 
-**Independent audit boundary.** `spec_tools.py validate --ready` independently checks the structure it can know: schema conformance, identifier references, MVP/acceptance-criterion coverage, and readiness fields. It does **not** prove that prose describes every lifecycle edge or real read path. The elicitation AI performs those semantic composition checks, and factory-bound work receives a separate codebase-grounded architecture and coverage review. Until a machine-readable lifecycle or producer/consumer model exists, do not claim mechanical verification of those meanings.
+**Independent composition verification requirement.** Before synthesis proceeds, the composition checks must be verified independently of the elicitation AI's prose self-review. Today this requires a distinct model instance to review the accumulated pre-synthesis artifact. An independently validated structural symbol-reference parse may replace that reviewer only after such a mechanism is implemented. The components-and-edges graph pass proposed in debate 006 would instead supply flags to the distinct reviewer; it is supplemental and is not current capability. `spec_tools.py validate --ready` separately validates the canonical YAML's schema, declared references, and readiness conditions; it does not verify lifecycle wiring, read-path symmetry, or configuration surface. For factory-bound specs, the later §12 architecture and coverage review is an additional backstop, not a substitute for this pre-synthesis verification.
 
 **Blocking requirement.** Composition gaps in MVP scope block synthesis. Resolve facts from supplied context or inspectable evidence first. Ask the human in domain language only when the gap is an intent or trade-off decision, then record the answer as an AC. Non-MVP gaps may be recorded as assumptions.
 
@@ -244,7 +244,7 @@ Before synthesis, the AI performs a full pass over all accumulated answers, assu
 | Read-path symmetry | "What consumer reads the `scan_history` table?" | "When something goes wrong with a scan, how does someone find out what happened? Do they see it on a screen, get notified, or only check if they go looking?" |
 | Configuration surface | "Where does `AlertConfig` come from at runtime?" | "When would someone first set the email address for alerts — is there a place for that in the app, or does someone configure it once when setting the system up?" |
 
-The audit records its checked counts and findings in working state so coverage is attributable rather than silent. Show the human only unresolved intent choices or conflicts. A clean internal audit does not need a permission-only conversation turn. After synthesis, run structural validation on the canonical YAML; automatically repair and revalidate machine-detectable defects unless they expose a human-owned decision.
+The audit records its checked counts, findings, and independent-verification status in working state so coverage is attributable rather than silent. That status remains `pending` until a distinct reviewer completes the same composition checks. Fold the review findings back into working state and resolve MVP gaps before synthesis. Show the human only unresolved intent choices or conflicts; a clean audit does not require a permission-only conversation turn. After synthesis, run structural validation on the canonical YAML and automatically repair and revalidate machine-detectable defects unless they expose a human-owned decision.
 
 ---
 
@@ -507,12 +507,20 @@ The gate passes only when the work plan:
 3. Includes an explicit read/write compatibility matrix and real historical fixtures whenever persisted or externally exchanged formats may change
 4. Assigns every target intent item and acceptance criterion, plus every changed contract and affected consumer, to a bounded work package with prerequisites and a verifiable completion condition
 5. Defines verification at the layer where behavior is real: browser runtime tests for browser behavior, serialize/reparse and unchanged-round-trip tests for persisted data, and real-environment tests for integrations that can be run
-6. Includes adversarial cases appropriate to the change, including zero/one/many, boundary positions, missing or conflicting metadata, duplicate or missing identity, and old/current representations where applicable
+6. Includes exactly one entry for each canonical adversarial case — `zero_one_many`, `first_middle_last`, `missing_conflicting_metadata`, `duplicate_missing_identity`, and `old_current_representations` — marking each required or not applicable with a reason and verification where required. Additional cases may be added, but canonical case names are unique
 7. Receives an independent architecture and coverage review for factory-bound work; unresolved coverage gaps block implementation
 
 An implementation task is not complete merely because its local tests pass. It is complete when its assigned acceptance criteria and consumer obligations pass at the declared verification layers.
 
 **Defect-class recurrence rule:** The first defect in a class triggers a consumer-wide fix and a regression test at the violated boundary. A second occurrence of the same defect class pauses implementation. The agent must revisit the invariant, consumer map, and task boundaries before continuing; reproducing and patching only the latest symptom is insufficient.
+
+**Work-plan contract decisions:** The current work-plan contract intentionally remains
+`plan_version: 1`; these readiness checks harden the gate without adding a required
+artifact section. A readiness reviewer is recorded as an explicit, nonblank identity
+label with an RFC 3339 review timestamp. Work-plan v1 does not record an implementer
+identity or model lineage, so the gate does not claim to mechanically prove reviewer /
+implementer distinctness. Adding structured identities is a future version decision,
+not an inferred interpretation of the v1 reviewer field.
 
 **Ownership boundary:** The implementing agent may reorder implementation work but must not silently change the human's value phases, scope, or acceptance criteria. Any genuine conflict returns to the human as a plain-language decision with impact, not as an undocumented planning assumption.
 

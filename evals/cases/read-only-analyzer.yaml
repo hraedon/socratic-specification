@@ -1,4 +1,4 @@
-case_version: 1
+case_version: 2
 id: read-only-analyzer
 mode: greenfield
 purpose: Exercise guardrail composition for a privileged collector and offline analyzer.

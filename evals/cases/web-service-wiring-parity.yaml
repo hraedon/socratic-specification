@@ -1,4 +1,4 @@
-case_version: 1
+case_version: 2
 id: web-service-wiring-parity
 mode: greenfield
 purpose: Ensure the process surfaces a wiring-parity verification obligation for a multi-feature web service where unit tests can pass while features are unreachable from consumers.

@@ -86,9 +86,8 @@ own vocabulary rather than Python symbols (the spec has no code yet).
    whole component with a clean ID and consistent interfaces; a lint over a
    manifest *containing* it passes. A manifest authored by the same agent that
    wrote the spec inherits the spec's blind spots. The graph pass therefore only
-   adds value run by the independent post-synthesis reviewer the process already
-   defines for factory-bound specs — and its findings are *flags for that
-   reviewer*, not a green light.
+   adds value when verified by the distinct pre-synthesis reviewer Step 5
+   requires — and its findings are *flags for that reviewer*, not a green light.
 
 2. **It is Claim 2, and the thesis framing must say so.** A components-with-edges
    block asks the elicitation agent to commit to a coarse topology. That is
@@ -135,11 +134,12 @@ just a downstream gate — closes the composition-gap failure class.
 
 The cross-model audit requirement this debate's Problem section references was
 adopted in commit 29e56c4 (2026-05-25) — the original "not adopted" framing above
-has been corrected. The requirement stated: distinct model instance OR structural
-symbol-reference parse. With `spec_tools.py validate --ready` now shipping as the
-structural parse, the OR branch is mechanically satisfied. process.md Step 5 has
-been updated to name `spec_tools.py` as the independent verification mechanism.
+has been corrected. `spec_tools.py validate --ready` now provides schema,
+reference, and readiness validation, but it is not the proposed components-and-edges
+graph pass and does not independently check lifecycle wiring, read-path symmetry,
+or configuration surface. Those composition concerns still require verification
+by a distinct model before synthesis proceeds.
 
 The debate's core recommendation — pilot the graph pass against cert-watch gaps
-before promoting — remains open and valid. The structural parse satisfies the
-*minimum* cross-model requirement; the graph pass would strengthen it further.
+before promoting — remains open and valid. The graph pass remains a future proposal
+that would add mechanical support to, rather than replace, independent review.

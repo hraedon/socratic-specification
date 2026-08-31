@@ -1,0 +1,5 @@
+version: 2
+entries:
+  - id: policy-001
+    name: legacy-policy
+    enabled: true

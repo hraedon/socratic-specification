@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hraedon/socratic-specification/evals/case-v2.schema.json",
+  "$comment": "Version 2 is the current evaluation-case contract and is paired with run-v2.",
+  "title": "Socratic Process Evaluation Case v2",
+  "type": "object",
+  "required": ["case_version", "id", "mode", "purpose", "input", "attention_budget", "expected_obligations", "anti_obligations"],
+  "properties": {
+    "case_version": {"const": 2},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "mode": {"enum": ["greenfield", "change_existing_system"]},
+    "purpose": {"type": "string", "minLength": 1},
+    "input": {
+      "type": "object",
+      "required": ["vibe_spec", "available_context"],
+      "properties": {
+        "vibe_spec": {"type": "string", "minLength": 1},
+        "available_context": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "attention_budget": {
+      "type": "object",
+      "required": ["maximum_human_questions", "rationale"],
+      "properties": {
+        "maximum_human_questions": {"type": "integer", "minimum": 0},
+        "rationale": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "expected_obligations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "deadline", "obligation", "rationale"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^OB-[0-9]+$"},
+          "severity": {"enum": ["critical", "important"]},
+          "deadline": {"enum": ["elicitation", "pre_synthesis", "work_decomposition", "pre_handoff"]},
+          "obligation": {"type": "string", "minLength": 1},
+          "rationale": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "anti_obligations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "anti_obligation", "rationale"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^ANTI-[0-9]+$"},
+          "anti_obligation": {"type": "string", "minLength": 1},
+          "rationale": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

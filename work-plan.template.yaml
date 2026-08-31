@@ -5,8 +5,11 @@
 # artifact: it may determine build order, but it must not rewrite human-owned
 # scope, value phases, or acceptance criteria.
 
-plan_version: 1                  # Schema version for consumers of this artifact
+plan_version: 1                  # Explicitly retained v1; readiness hardening is not a shape migration
 plan_revision: 1                 # Increment whenever decomposition is revised and re-reviewed
+# Blocker to reviewer/implementer distinctness enforcement: v1 records no
+# implementer identity or model lineage. The reviewer strings below cannot be
+# compared safely, so do not claim mechanical distinctness until artifacts record both roles.
 
 source:
   artifact_path: "spec.yaml"      # [REQUIRED] Canonical spec or change-spec
@@ -33,10 +36,11 @@ phase_plan:
     - description: ""
       source: ""                  # Spec hint or codebase evidence
       work_package_ids: []
-  value_build_conflicts: []       # Must be surfaced before Stage 4; never silently reorder scope
+  value_build_conflicts: []       # Every entry must have status: resolved before Stage 4.
 # - conflict: ""
 #   impact: ""
 #   human_decision_required: true
+#   status: "resolved"            # Record the decision; unresolved conflicts block readiness.
 
 # Invariants are implementation-level truths that every affected work package
 # must preserve. Include only dimensions that apply, but never leave ownership
@@ -121,7 +125,7 @@ compatibility:
       read_behavior: ""           # accept/reject/migrate/normalize, with expected result
       write_behavior: ""          # emitted version or preservation rule
       fixture: ""                 # Path to a real, immutable fixture
-      fixture_fingerprint: ""     # Detect accidental rewriting of historical evidence
+      fixture_fingerprint: ""     # SHA-256 of fixture bytes; fixture must be under plan/project tree
       immutable_on_read: true
   migration_steps:
     - from: ""
@@ -170,6 +174,9 @@ verification:
     evidence: ""                  # Output or report proving the result
 
 adversarial_matrix:
+  # Required canonical cases: zero_one_many, first_middle_last,
+  # missing_conflicting_metadata, duplicate_missing_identity, and
+  # old_current_representations. Case names must be unique in a ready plan.
   - case: "zero_one_many"
     applicability: "required"     # "required" | "not_applicable"
     reason: ""
@@ -196,8 +203,8 @@ adversarial_matrix:
     verification_ids: []
 
 readiness_review:
-  reviewer: ""                   # [REQUIRED] Independent model/agent, not a package implementer
-  reviewed_at: ""                # ISO 8601 timestamp
+  reviewer: ""                   # [REQUIRED] Explicit identity label; v1 cannot encode implementer lineage
+  reviewed_at: ""                # RFC 3339 date-time
   invariant_coverage: "pending"  # "pending" | "pass" | "fail"
   consumer_coverage: "pending"
   compatibility_coverage: "pending"
@@ -231,6 +238,6 @@ handoff:
   prior_findings_and_regressions: []
   commands_run: []
   known_limitations: []
-  independent_reviewer: ""
-  reviewed_at: ""
+  independent_reviewer: ""       # Explicit identity label; no v1 implementer identity to compare
+  reviewed_at: ""                # RFC 3339 date-time
   review_result: "pending"       # "pending" | "pass" | "fail"

@@ -1,4 +1,4 @@
-case_version: 1
+case_version: 2
 id: evidence-first-maintenance
 mode: change_existing_system
 purpose: Ensure repository facts are inspected rather than pushed back onto a non-technical user.

@@ -17,6 +17,7 @@ from typing import Any
 
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema.exceptions import SchemaError
 
 ROOT = Path(__file__).resolve().parents[1]
 STAGE_RANK = {
@@ -30,19 +31,62 @@ STAGE_RANK = {
 
 
 def load_mapping(path: Path) -> dict[str, Any]:
-    value = yaml.safe_load(path.read_text(encoding="utf-8"))
+    try:
+        value = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except UnicodeError as exc:
+        raise ValueError(f"{path}: cannot read YAML: invalid UTF-8 ({exc})") from exc
+    except (OSError, yaml.YAMLError) as exc:
+        raise ValueError(f"{path}: cannot read YAML: {exc}") from exc
     if not isinstance(value, dict):
         raise TypeError(f"{path}: top level must be a mapping")
     return value
 
 
 def schema_errors(data: dict[str, Any], schema_path: Path, label: str) -> list[str]:
-    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except UnicodeError as exc:
+        return [f"{label}: {schema_path}: invalid schema: invalid UTF-8 ({exc})"]
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"{label}: {schema_path}: invalid schema: {exc}"]
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as exc:
+        return [
+            f"{label}: {schema_path}: invalid schema: "
+            f"{getattr(exc, 'message', str(exc))}"
+        ]
+    except TypeError as exc:
+        return [f"{label}: {schema_path}: invalid schema: {exc}"]
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
     return [
         f"{label}: {error.json_path}: {error.message}"
-        for error in sorted(validator.iter_errors(data), key=lambda item: list(item.absolute_path))
+        for error in sorted(
+            validator.iter_errors(data), key=lambda item: _path_sort_key(item.absolute_path)
+        )
     ]
+
+
+def _path_sort_key(parts: object) -> tuple[tuple[int, str], ...]:
+    return tuple(
+        (0, str(part)) if isinstance(part, int) else (1, str(part))
+        for part in parts
+    )
+
+
+def _versioned_schema(root: Path, artifact: str, version: object) -> Path | None:
+    if version is None:
+        version = 1
+    if isinstance(version, bool):
+        return None
+    filenames = {
+        ("case", 1): "case.schema.json",
+        ("case", 2): "case-v2.schema.json",
+        ("run", 1): "run.schema.json",
+        ("run", 2): "run-v2.schema.json",
+    }
+    filename = filenames.get((artifact, version))
+    return root / "evals" / filename if filename else None
 
 
 def _id_errors(
@@ -50,7 +94,10 @@ def _id_errors(
 ) -> list[str]:
     observed = [item.get("id") for item in observations]
     errors: list[str] = []
-    duplicates = sorted(identifier for identifier, count in Counter(observed).items() if count > 1)
+    duplicates = sorted(
+        (identifier for identifier, count in Counter(observed).items() if count > 1),
+        key=str,
+    )
     if duplicates:
         errors.append(f"duplicate {label} judgments: {duplicates}")
     missing = sorted(expected - set(observed))
@@ -70,6 +117,30 @@ def score_eval_run(
         errors.append(
             f"run.case_id {run.get('case_id')!r} does not match case.id {case.get('id')!r}"
         )
+    case_version = case.get("case_version")
+    run_version = run.get("run_version")
+    if case_version is not None and run_version is not None and case_version != run_version:
+        errors.append(
+            "case_version and run_version must match "
+            f"({case_version!r} != {run_version!r})"
+        )
+
+    expected_obligation_ids = [
+        item.get("id") for item in case.get("expected_obligations", [])
+    ]
+    expected_anti_ids = [item.get("id") for item in case.get("anti_obligations", [])]
+    for ids, label in (
+        (expected_obligation_ids, "expected obligation"),
+        (expected_anti_ids, "expected anti-obligation"),
+    ):
+        duplicates = sorted(
+            (identifier for identifier, count in Counter(ids).items() if count > 1),
+            key=str,
+        )
+        if duplicates:
+            errors.append(f"duplicate {label} IDs: {duplicates}")
+    if errors:
+        return None, errors
 
     expected_obligations = {
         item["id"]: item for item in case.get("expected_obligations", []) if item.get("id")
@@ -187,12 +258,27 @@ def main(argv: list[str] | None = None) -> int:
     try:
         case = load_mapping(args.case)
         run = load_mapping(args.run)
-    except (OSError, TypeError, yaml.YAMLError) as exc:
+    except (TypeError, ValueError) as exc:
         print(exc, file=sys.stderr)
         return 1
 
-    errors = schema_errors(case, ROOT / "evals/case.schema.json", str(args.case))
-    errors.extend(schema_errors(run, ROOT / "evals/run.schema.json", str(args.run)))
+    case_schema = _versioned_schema(ROOT, "case", case.get("case_version"))
+    run_schema = _versioned_schema(ROOT, "run", run.get("run_version"))
+    errors: list[str] = []
+    if case_schema is None:
+        errors.append(
+            f"{args.case}: $.case_version: unsupported case schema version "
+            f"{case.get('case_version')!r}; supported versions are 1 and 2"
+        )
+    else:
+        errors.extend(schema_errors(case, case_schema, str(args.case)))
+    if run_schema is None:
+        errors.append(
+            f"{args.run}: $.run_version: unsupported run schema version "
+            f"{run.get('run_version')!r}; supported versions are 1 and 2"
+        )
+    else:
+        errors.extend(schema_errors(run, run_schema, str(args.run)))
     if not errors:
         report, errors = score_eval_run(case, run)
     else:

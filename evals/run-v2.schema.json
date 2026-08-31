@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hraedon/socratic-specification/evals/run-v2.schema.json",
+  "$comment": "Version 2 requires non-whitespace evidence; run v1 remains unchanged for historical records.",
+  "title": "Socratic Process Evaluation Run v2",
+  "type": "object",
+  "required": [
+    "run_version",
+    "case_id",
+    "process_revision",
+    "obligations",
+    "anti_obligations",
+    "human_questions",
+    "corrections",
+    "artifact_validation"
+  ],
+  "properties": {
+    "run_version": {
+      "const": 2
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "process_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "obligations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "stage",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^OB-[0-9]+$"
+          },
+          "status": {
+            "enum": [
+              "surfaced",
+              "missed"
+            ]
+          },
+          "stage": {
+            "enum": [
+              "elicitation",
+              "pre_synthesis",
+              "work_decomposition",
+              "pre_handoff",
+              "implementation",
+              "not_surfaced"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "missed"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "stage": {
+                  "const": "not_surfaced"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "surfaced"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "stage": {
+                  "not": {
+                    "const": "not_surfaced"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "anti_obligations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^ANTI-[0-9]+$"
+          },
+          "status": {
+            "enum": [
+              "avoided",
+              "committed"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "human_questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "question",
+          "necessity",
+          "evidence"
+        ],
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "necessity": {
+            "enum": [
+              "necessary",
+              "discoverable_from_context"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "corrections": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "artifact_validation": {
+      "type": "object",
+      "required": [
+        "schema",
+        "readiness",
+        "generated_views_sync"
+      ],
+      "properties": {
+        "schema": {
+          "enum": [
+            "pass",
+            "fail",
+            "not_run"
+          ]
+        },
+        "readiness": {
+          "enum": [
+            "pass",
+            "fail",
+            "not_run"
+          ]
+        },
+        "generated_views_sync": {
+          "enum": [
+            "pass",
+            "fail",
+            "not_run"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

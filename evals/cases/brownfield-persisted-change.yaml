@@ -1,4 +1,4 @@
-case_version: 1
+case_version: 2
 id: brownfield-persisted-change
 mode: change_existing_system
 purpose: Detect compatibility and consumer obligations before changing a persisted representation.

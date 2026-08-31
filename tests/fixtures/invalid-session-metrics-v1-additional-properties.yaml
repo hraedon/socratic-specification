@@ -1,0 +1,21 @@
+metrics_version: 1
+session_key: session-opaque-001
+project_key: project-opaque-001
+mode: greenfield
+started_at: "2026-08-30T12:00:00Z"
+highest_step: 7
+rounds_completed: 3
+human_questions: 8
+human_corrections: 2
+desired_level: 3
+achieved_level: 3
+reached_synthesis: true
+work_plan_revisions: 1
+implementation_human_decisions: 1
+defects:
+  - class: implementation_error
+    count: 1
+    detail: stack trace text
+acceptance_criteria_revisions: 0
+value_phase_accepted: true
+prompt: sensitive prompt text

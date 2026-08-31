@@ -31,14 +31,14 @@ changed_contracts:
     change: Introduce the first canonical plant representation.
     authority: Plant domain model
     consumers:
-      - {layer: parser, location: "", status: not_applicable, evidence: No external parser exists., work_package_ids: []}
+      - {layer: parser, location: no_external_parser, status: not_applicable, evidence: No external parser exists., work_package_ids: []}
       - {layer: domain_model, location: plant, status: affected, evidence: Defines the canonical record., work_package_ids: [WP-01]}
       - {layer: persistence, location: plant_store, status: affected, evidence: Stores and reloads records., work_package_ids: [WP-01]}
-      - {layer: api, location: "", status: not_applicable, evidence: No API is in scope., work_package_ids: []}
-      - {layer: browser, location: "", status: not_applicable, evidence: Native local UI., work_package_ids: []}
+      - {layer: api, location: no_api, status: not_applicable, evidence: No API is in scope., work_package_ids: []}
+      - {layer: browser, location: native_local_ui, status: not_applicable, evidence: Native local UI., work_package_ids: []}
       - {layer: validation, location: plant_validation, status: affected, evidence: Checks interval constraints., work_package_ids: [WP-01]}
-      - {layer: comparison_hashing, location: "", status: not_applicable, evidence: No comparisons or hashes exist., work_package_ids: []}
-      - {layer: export, location: "", status: not_applicable, evidence: Export is outside MVP., work_package_ids: []}
+      - {layer: comparison_hashing, location: no_comparison_or_hash, status: not_applicable, evidence: No comparisons or hashes exist., work_package_ids: []}
+      - {layer: export, location: out_of_scope_export, status: not_applicable, evidence: Export is outside MVP., work_package_ids: []}
       - {layer: documentation, location: user_help, status: affected, evidence: Describes valid fields., work_package_ids: [WP-01]}
 compatibility:
   required: false

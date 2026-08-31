@@ -106,6 +106,36 @@ Install development dependencies with `python -m pip install -r requirements-dev
 
 Legacy specifications used the implicit sidecar format. Preserve their history and follow [the v1-to-v2 migration guide](docs/schema-migration-v1-to-v2.md) when a project needs a canonical revision.
 
+Ready work plans verify every declared compatibility fixture by its byte-level
+`sha256:` fingerprint, require `immutable_on_read: true`, and require it to remain
+below the plan or target-project tree. A missing, moved, or rewritten fixture is a
+validation error, not a path comparison. Resolve value/build conflicts
+(`status: resolved`) and retain one unique entry for each canonical adversarial
+case: `zero_one_many`, `first_middle_last`, `missing_conflicting_metadata`,
+`duplicate_missing_identity`, and `old_current_representations`. A required case
+needs verification; a not-applicable case needs a nonblank reason.
+
+Readiness reviewers must use a nonblank identity label and an RFC 3339 timestamp;
+handoff reviewers use the same rules. Every brownfield changed contract must name
+at least one structured, nonblank consumer.
+
+Work-plan v1 does not record an implementer's identity or model lineage. Its
+reviewer strings therefore cannot support a reliable reviewer/implementer
+distinctness check; the readiness gate intentionally does not fake one. Add
+structured identity and lineage for both roles before enforcing that separation.
+
+This is a readiness-gate hardening, not an artifact schema-version change. To
+migrate an existing plan, copy each historical snapshot into its plan/project
+tree, set `fixture_fingerprint` to the fixture bytes' SHA-256, resolve every
+recorded value/build conflict, and attach verification to at least one required
+adversarial case.
+
+Evaluation cases and runs have an explicit compatibility split. The unversioned
+`evals/case.schema.json` and `evals/run.schema.json` remain the frozen v1 contracts;
+`case-v2.schema.json` and `run-v2.schema.json` are the current v2 contracts. The
+checker selects the schema from the artifact version and rejects case/run version
+mismatches. v2 rejects whitespace-only evidence; v1 remains accepted unchanged.
+
 ## Status
 
 Active development. Critiques and iterations tracked in [critique.md](critique.md). Open architectural debate tracked in [debate/](debate/).

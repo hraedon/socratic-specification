@@ -37,7 +37,7 @@ preserved_behaviors:
   - id: "PRESERVE-01"
     behavior: ""
     evidence: ""                 # Existing test, code path, documentation, or observed behavior
-    regression_acceptance_ids: []
+    regression_acceptance_ids: [] # Required before ready; each must be a regression CAC
 
 touched_couplings:
   - decision: ""                 # Existing architectural choice reached by this change
@@ -50,10 +50,10 @@ changed_contracts:
     name: ""
     change: ""
     preserved_invariant: ""      # [REQUIRED before implementation]
-    consumers:
-      - layer: ""
-        location: ""
-        impact: ""
+    consumers:                    # [REQUIRED] At least one named consumer
+      - layer: ""                 # Nonblank repository layer
+        location: ""              # Nonblank file, symbol, endpoint, or document
+        impact: ""                 # Nonblank effect of the change
         verification_acceptance_ids: []
 
 compatibility:

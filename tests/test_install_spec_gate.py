@@ -51,3 +51,18 @@ def test_installed_gate_uses_bundled_schemas_and_correct_brief_renderer(
     assert stale.returncode == 1
     assert "generated view is stale" in stale.stderr
     assert "spec_tools.py brief" in stale.stderr
+
+
+def test_installer_is_idempotent_and_removes_stale_schema_copies(tmp_path: Path) -> None:
+    target = tmp_path / "consumer"
+    target.mkdir()
+    subprocess.run(["git", "init", "-q", str(target)], check=True)
+
+    subprocess.run(["bash", str(INSTALLER), str(target)], check=True)
+    stale = target / ".spec-gate" / "schemas" / "stale.schema.json"
+    stale.write_text("stale")
+    subprocess.run(["bash", str(INSTALLER), str(target)], check=True)
+
+    assert not stale.exists()
+    assert not (target / ".spec-gate" / "schemas" / "schemas").exists()
+    assert (target / ".spec-gate" / "schemas" / "spec-v2.schema.json").is_file()
